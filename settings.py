@@ -1,9 +1,15 @@
 import os
-
+import django
 #from settings_philadelphia import *
 #from settings_sanfrancisco import *
-from settings_greenprint import *
+from settings_bootstrap import *
 #from settings_dctreekit import *
+
+#new settings
+SITE_ROOT = '/'
+GEOSERVER_GEO_LAYER = ''
+GEOSERVER_GEO_STYLE = ''
+STATIC_URL = '/static/'
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -96,4 +102,5 @@ if SITE_ROOT is not "/":
     LOGIN_URL = "%s/accounts/login" % SITE_ROOT
 else:
     LOGIN_URL = "/accounts/login"
+
 
