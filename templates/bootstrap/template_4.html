@@ -21,42 +21,32 @@
 
 {% block content %}
     
-        <div class="content home">
-        	<div id="t4_top_content">
-	            {% block top_content %}
-	                <div id="t4_top_left_panel">
-	                    {% block top_left_panel %}
-	                    {% endblock top_left_panel %}
-	                </div>
-	                
-	                <div id="t4_top_right_panel">
-	                    {% block top_right_panel %}
-	                    {% endblock top_right_panel %}
-	                </div>
-	            {% endblock top_content %}
-			</div>
-		</div>
-		
-        <div id="content">
-            <div id="t4_bottom_content">
-                {% block bottom_content %}
-                    <div class="twocolumns"> 
-                        <div id="t4_bottom_left_panel">
-                            {% block bottom_left_panel %}
-                            {% endblock bottom_left_panel %}
-                        </div>
-                        
-                        <div id="t4_bottom_right_panel">
-                            {% block bottom_right_panel %}
-                            {% endblock bottom_right_panel %}
-                        </div>
-                    </div>
+       	<section class="t4_top_content row">
+	  {% block top_content %}
+	  <section class="t4_top_left_panel span6">
+	    {% block top_left_panel %}
+	    {% endblock top_left_panel %}
+	  </section>
+	  
+	  <section class="t4_top_right_panel span6">
+	    {% block top_right_panel %}
+	    {% endblock top_right_panel %}
+	  </section>
+	  {% endblock top_content %}
+	</section>
 
-                {% endblock bottom_content %}    
-            </div>
-        </div>
-    
+        <section class="t4_bottom_content row">
+          {% block bottom_content %}
+          <section class="t4_bottom_left_panel span6">
+            {% block bottom_left_panel %}
+            {% endblock bottom_left_panel %}
+          </section>
+                        
+          <section class="t4_bottom_right_panel span6">
+            {% block bottom_right_panel %}
+            {% endblock bottom_right_panel %}
+          </section>
+          {% endblock bottom_content %}    
+        </section>
     
 {% endblock %}
-
-

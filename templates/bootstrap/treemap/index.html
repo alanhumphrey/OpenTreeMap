@@ -7,44 +7,21 @@
     {% block extra_onready %}
         //tm.init_map('index_map');    
         //todo less js on the homepage (eg no gmaps stuff?)
-        tm.initial_location_string = "San Francisco, CA";
+        tm.initial_location_string = "Bootstrap, Anywhere";
         tm.initial_species_string = "All trees";
 
     {% endblock %}
+
         {% block top_left_panel %}
-        <div class="getStarted">
-        	<ul>
-        		<li><a href="{% url treemap.views.result_map %}">Get Started</a></li>
-        	</ul>
-       </div>
+           <div class='hero-unit'>
+	     <h2>Creating a map of our urban forest one tree at a time...</h2>
+	     <p>You can: Find a tree, add a tree, edit a tree</p>
+             <a href="{% url treemap.views.result_map %}" class='btn btn-primary btn-large'>Get Started</a>
+	   </div>
         {% endblock %}
 
         {% block top_right_panel %}
         {% endblock %}
-        
-        
-        {% block xcallout %}
-        <!--Start Callout  --> 
-            <div class="callout"> 
-                <!--Start Callout inner  --> 
-                <div class="callout-inner"> 
-                <ul> 
-                
-                            <li><a href="#"><img src="{{ STATIC_URL }}images/es/image02.jpg" alt="image description" width="76" height="76" /></a></li> 
-                            <li><a href="#"><img src="{{ STATIC_URL }}images/es/image03.jpg" alt="image description" width="76" height="76" /></a></li> 
-                            <li><a href="#"><img src="{{ STATIC_URL }}images/es/image04.jpg" alt="image description" width="76" height="76" /></a></li> 
-                            <li><a href="#"><img src="{{ STATIC_URL }}images/es/image05.jpg" alt="image description" width="76" height="76" /></a></li> 
-                            <li><a href="#"><img src="{{ STATIC_URL }}images/es/image06.jpg" alt="image description" width="76" height="76" /></a></li> 
-                            <li class="last"><a href="#"><img src="{{ STATIC_URL }}images/es/image07.jpg" alt="image description" width="76" height="76" /></a></li> 
-                </ul> 
-                </div> 
-                <!--End Callout inner  --> 
-            </div> 
-            <!--End Callout  --> 
-        {% endblock xcallout %}
-        
-        
-        
         
         {% block bottom_left_panel %}
         {% endblock bottom_left_panel %}
@@ -53,42 +30,35 @@
         {% endblock %}
 
 
-
         {% block sub_footer %}
           
 <!-- start: subfooter -->
 
-    <div class="content">
-        <div id="subfooterContainer" class="front">
-            <div id="col1">
-                <ul class="header">
-                    <li><a href="{{ SITE_ROOT }}about/#about">About the project</a></li>
-                </ul>
-                <p>The Urban Forest Map is a collaboration of government, nonprofits, businesses and you to build an inventory of San Francisco's urban forest. <a href="{{ SITE_ROOT }}about/#about" class="more">More&nbsp;&raquo;</a></p>
-                <ul class="header">
-                    <li><a href="{{ SITE_ROOT }}about/#why">Why</a></li>
-                </ul>
-                <p>The urban forest needs our help to survive and grow. Understanding what is out there is one of the first steps to planning for the future. <a href="{{ SITE_ROOT }}about/#why" class="more">More&nbsp;&raquo;</a></p>            
+        <section class="row">
+            <div class="span6">
+              <h2><a href="{{ SITE_ROOT }}about/#about">About the project</a></h2>
+                
+              <p>The Urban Forest Map is a collaboration of government, nonprofits, businesses and you to build an inventory of San Francisco's urban forest. <a href="{{ SITE_ROOT }}about/#about" class="more">More&nbsp;&raquo;</a></p>
+	      
+              <h2><a href="{{ SITE_ROOT }}about/#why">Why</a></h2>
+
+              <p>The urban forest needs our help to survive and grow. Understanding what is out there is one of the first steps to planning for the future. <a href="{{ SITE_ROOT }}about/#why" class="more">More&nbsp;&raquo;</a></p>            
             </div>
             
-            <div id="col2">
-                <ul class="header">
-                    <li><a href="{{ SITE_ROOT }}resources/#why">Your role</a></li>
-                </ul>
+            <div class="span6">
+              <h2><a href="{{ SITE_ROOT }}resources/#why">Your role</a></h2>
                 
-                <p>As a citizen forester, you can get involved by searching for trees, verifying records, and by adding the trees in your neighborhood! <a href="{{ SITE_ROOT }}resources/#why" class="more">More&nbsp;&raquo;</a><br /></p>
+              <p>As a citizen forester, you can get involved by searching for trees, verifying records, and by adding the trees in your neighborhood! <a href="{{ SITE_ROOT }}resources/#why" class="more">More&nbsp;&raquo;</a><br /></p>
                 
-                <ul class="header">
-                    <li><a href="{{ SITE_ROOT }}faq/">FAQs</a></li>
-                </ul>
-                <p><a href="{{ SITE_ROOT }}resources/#species">What if I don't know the species?</a></p>
-                <p><a href="{{ SITE_ROOT }}resources/#measuretrunk">How do I measure the trunk diameter?</a></p>
-                <p><a href="{{ SITE_ROOT }}resources/#ecoservices">What are the ecosystem services?</a></p>
-                <p><a href="{{ SITE_ROOT }}resources/#faqs" class="more">See all FAQs&nbsp;&raquo;</a></p>
+              <h2><a href="{{ SITE_ROOT }}faq/">FAQs</a></h2>
+	      <ul>
+		<li><a href="{{ SITE_ROOT }}resources/#species">What if I don't know the species?</a></li>
+		<li><a href="{{ SITE_ROOT }}resources/#measuretrunk">How do I measure the trunk diameter?</a></li>
+		<li><a href="{{ SITE_ROOT }}resources/#ecoservices">What are the ecosystem services?</a></li>
+		<li><a href="{{ SITE_ROOT }}resources/#faqs" class="more">See all FAQs&nbsp;&raquo;</a></li>
+	      </ul>
             </div>
-        </div>
-    </div>
-    <div id="cityFade"></div>    
+	</section>
 
 {% comment %}    
 <!-- end: subfooter -->

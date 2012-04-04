@@ -6,3 +6,7 @@ static/Nodes/*
 static/Species/*
 
 fabfile.*
+
+#emacs backup and temp files
+*~
+*#
