@@ -1,27 +1,32 @@
-tm.map_center_lon = -122.437821;
-tm.map_center_lat = 37.752809;
+tm.map_center_lon = -122.3320708;
+tm.map_center_lat = 47.6062095;
 tm.start_zoom = 12;
 tm.add_start_zoom = 11;
 tm.add_zoom = 18;
 tm.edit_zoom = 18;
-tm.initial_location_string = "San Francisco, CA";
+tm.initial_location_string = "Seattle, WA";
 tm.initial_species_string = "All trees";
 tm.popup_minSize = new OpenLayers.Size(450,200);
 tm.popup_maxSize = new OpenLayers.Size(450,450);
 
-tm.google_bounds = new google.maps.LatLngBounds(new google.maps.LatLng(37.62,-122.62), new google.maps.LatLng(37.88,-122.19));
-tm.geo_layer = "sf:sf_treemap_tree"
-tm.geo_layer_style = "sanfrancisco_tree_highlight"
+tm.google_bounds = new google.maps.LatLngBounds(new google.maps.LatLng(47.736,-122.449), new google.maps.LatLng(47.494,-122.229));
+tm.geo_layer = "cc:canopy";
+tm.geo_layer_style = "canopy_connection_tree_highlight";
 tm.panoAddressControl = false;
 
 tm.init_base_map = function(div_id, controls){
     if (!div_id) {
         div_id = "map";
-    };
+    }
+
+    var max_extent = new OpenLayers.Bounds(-13652354.432172, 6026153.418145, -13574082.915218, 6065289.1766216);
+//    max_extent.extend(new OpenLayers.LonLat(-122.449, 47.736));
+//    max_extent.extend(new OpenLayers.LonLat(-122.229, 47.494));
+    var restricted_extent = max_extent;
     if (!controls) {
         tm.map = new OpenLayers.Map(div_id, {
-            maxExtent: new OpenLayers.Bounds(-20037508.34, -20037508.34, 20037508.34, 20037508.34),
-            restrictedExtent: new OpenLayers.Bounds(-13669424.883684, 4502981.7575163, -13574337.220514, 4576361.3046569), 
+	    maxExtent: max_extent,
+	    restrictedExtent: restricted_extent,
             units: 'm',
             projection: new OpenLayers.Projection("EPSG:102100"),
             displayProjection: new OpenLayers.Projection("EPSG:4326"),
@@ -34,8 +39,8 @@ tm.init_base_map = function(div_id, controls){
     }
     else {
         tm.map = new OpenLayers.Map(div_id, {
-            maxExtent: new OpenLayers.Bounds(-20037508.34, -20037508.34, 20037508.34, 20037508.34),
-            restrictedExtent: new OpenLayers.Bounds(-13669424.883684, 4502981.7575163, -13574337.220514, 4576361.3046569), 
+	    maxExtent: max_extent,
+	    restrictedExtent: restricted_extent,
             units: 'm',
             projection: new OpenLayers.Projection("EPSG:102100"),
             displayProjection: new OpenLayers.Projection("EPSG:4326"),
@@ -58,16 +63,18 @@ tm.init_base_map = function(div_id, controls){
     tm.tms = new OpenLayers.Layer.TMS('TreeLayer', 
         tm_urls.tc_url,
         {
-            layername: 'SF',
+            layername: tm_urls.tc_layer_name,
             type: 'png',
             isBaseLayer: false,
             wrapDateLine: true,
-            attribution: "(c) UrbanForestMap.org"
+            attribution: tm_urls.attribution
         }
     );
     tm.tms.buffer = 0;
     tm.baseLayer.buffer = 0;
     tm.aerial.buffer = 0;
-    tm.map.addLayers([tm.aerial, tm.baseLayer, tm.tms]);
+// abh
+//    tm.map.addLayers([tm.aerial, tm.baseLayer, tm.tms]);
+    tm.map.addLayers([tm.baseLayer]);
     tm.map.setBaseLayer(tm.baseLayer);
 };

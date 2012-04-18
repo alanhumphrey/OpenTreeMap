@@ -152,6 +152,7 @@ var tm = {
                 tm.searchParams['species'] = this.value;
             }
         });
+//abh -changed _go to _goo to keep this function from being called.  TODO move code?
         $("#location_goo").click(function(evt) {
 	    console.log('in location_go');
             if ($('body')[0].id == "results") {
@@ -583,7 +584,7 @@ var tm = {
                 );
 
         
-        tm.map.addLayers([tm.vector_layer, tm.tree_layer, tm.misc_markers]);
+   //abh     tm.map.addLayers([tm.vector_layer, tm.tree_layer, tm.misc_markers]);
         tm.map.setCenter(
             new OpenLayers.LonLat(tm.map_center_lon, tm.map_center_lat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
             , tm.start_zoom);
@@ -1181,7 +1182,8 @@ var tm = {
         
  
     display_benefits : function(benefits){
-        jQuery('#results_wrapper').show();
+//        jQuery('#results_wrapper').show();
+        jQuery('#impact').show();
         jQuery("#no_results").hide();
         jQuery.each(benefits, function(k,v){
             jQuery('#benefits_' + k).html(tm.addCommas(parseInt(v)));
@@ -1799,7 +1801,9 @@ var tm = {
        
         if (tm.searchParams['location']) {
             var val = tm.searchParams['location'];
-            var coords = tm.geocoded_locations[val];
+            console.log('in serializesearchparams val = ' + val);
+	    var coords = tm.geocoded_locations[val];
+            console.log('in serializesearchparams coords = ' + coords);
             if (!coords) {return false;}
             if (coords.join) {
                 q.SET('location', coords.join(','));
@@ -1821,6 +1825,7 @@ var tm = {
         if (tm.loadingSearch) { return; }
         var qs = tm.serializeSearchParams();
         if (qs === false) { return; }
+	console.log('qs = ' + qs);
         tm.trackPageview('/search/' + qs);
         jQuery('#displayResults').show();
         //TODO: send a geoserver CQL request also
@@ -1854,6 +1859,7 @@ var tm = {
     },
 
     updateLocationFields: function(loc){
+	console.log('updatelocationfields ' + loc);
         if (loc){
             $("#location_search_input").val(loc);
             //var url = '/neighborhoods/?format=json&location=' + loc;

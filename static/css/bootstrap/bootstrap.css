@@ -4056,3 +4056,54 @@ legend {
 #advanced_search {
   background-color: #eeeeee;
 }
+#totals a {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid #999999;
+}
+#totals p {
+  padding-top: 5px;
+}
+#export p {
+  float: right;
+}
+#impact p {
+  margin-left: 50px;
+  padding: 0 10px;
+}
+#results_aside h2 {
+  text-align: center;
+  padding-top: 10px;
+}
+#impact h4,
+#impact h3 {
+  border-top: 1px solid #999999;
+  margin-top: 10px;
+}
+#impact h3,
+#impact h4 {
+  margin: 10px 20px 0 20px;
+  padding-top: 10px;
+}
+#impact p:last-child {
+  padding-bottom: 10px;
+}
+#impact img {
+  margin-right: 5px;
+}
+#impact strong {
+  font-size: 16px;
+}
+#block_heading,
+#impact,
+#results_aside {
+  background-color: #eeeeee;
+}
+#block_heading {
+  padding-top: 9px;
+  margin-bottom: 10px;
+}
+#results_aside,
+#results_map {
+  margin-top: 10px;
+}
