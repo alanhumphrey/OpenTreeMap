@@ -10,7 +10,7 @@ tm.popup_minSize = new OpenLayers.Size(450,200);
 tm.popup_maxSize = new OpenLayers.Size(450,450);
 
 tm.google_bounds = new google.maps.LatLngBounds(new google.maps.LatLng(47.736,-122.449), new google.maps.LatLng(47.494,-122.229));
-tm.geo_layer = "cc:canopy";
+tm.geo_layer = "cc:neighborhood";
 tm.geo_layer_style = "canopy_connection_tree_highlight";
 tm.panoAddressControl = false;
 
@@ -73,8 +73,7 @@ tm.init_base_map = function(div_id, controls){
     tm.tms.buffer = 0;
     tm.baseLayer.buffer = 0;
     tm.aerial.buffer = 0;
-// abh
-//    tm.map.addLayers([tm.aerial, tm.baseLayer, tm.tms]);
+    tm.map.addLayers([tm.aerial, tm.baseLayer, tm.tms]);
     tm.map.addLayers([tm.baseLayer]);
     tm.map.setBaseLayer(tm.baseLayer);
 };

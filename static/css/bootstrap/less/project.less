@@ -110,7 +110,7 @@ legend {
 #impact img { margin-right: 5px;}
 #impact strong { font-size: 16px; }
 
-#block_heading, #impact, #results_aside {
+#block_heading, #impact, #results_aside, #results_map_wrap {
     background-color: @grayLighter;
 }
 #block_heading {
@@ -118,4 +118,21 @@ legend {
     margin-bottom: 10px;
 }
 
-#results_aside, #results_map {margin-top: 10px;}
+#results_aside, #results_map_wrap {margin-top: 10px;}
+
+#results_map {
+    width: 600px;
+    height:498px;
+    position:relative;
+}
+
+#results_map_wrap {
+    padding: 10px;
+}
+
+.map_toggle {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    z-index: 1000;
+}

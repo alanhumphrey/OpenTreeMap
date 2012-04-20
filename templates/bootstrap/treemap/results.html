@@ -54,8 +54,16 @@
 {% endblock %}
 
 {% block top_right_panel %}
-<div id = "results_map"></div>
-<div class="mapToggle buttomSm">View Satellite</div>
+<div id= "results_map_wrap">
+  <div id="displayResults" style="display:none;">
+    <img src="{{ STATIC_URL }}images/v2/indicator_lg2.gif" width="80" height="80" />
+    <p>Loading...</p>
+  </div>
+
+  <div id = "results_map">
+    <div class="map_toggle btn btn-mini btn-primary">View Satellite</div>
+  </div>
+</div>
 {% endblock %}        
         
         
