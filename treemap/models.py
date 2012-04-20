@@ -1,7 +1,9 @@
 import os
 import math
+import re
 from decimal import *
 from datetime import datetime
+from operator import itemgetter
 from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.gis.db.models import Sum
@@ -87,12 +89,21 @@ class BenefitValues(models.Model):
     
     def __unicode__(self): return '%s' % (self.area)
 
+
+def sorted_nicely(l, key):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda item: [ convert(c) for c in re.split('([0-9]+)', key(item)) ]
+    return sorted(l, key = alphanum_key)
+
+
+
 class Choices(models.Model):
     field = models.CharField(max_length=255, choices=choices_choices)
     key = models.CharField(max_length=50)
     value = models.CharField(max_length=255)
     key_type = models.CharField(max_length=15)
-    
+
     def get_field_choices(self, fieldName):
         li = {}
         for c in Choices.objects.filter(field__exact=fieldName):
@@ -112,7 +123,7 @@ class Choices(models.Model):
                 raise Exception("Invalid key type %r" % c.key_type)
 
             li[c.key] = c.value
-        return sorted(li.items())
+        return sorted_nicely(li.items(), itemgetter(0))
     
     def __unicode__(self): return '%s(%s) - %s' % (self.field, self.key, self.value)
         
@@ -156,7 +167,7 @@ class ZipCode(models.Model):
     geometry = models.MultiPolygonField(srid=4326)
     objects=models.GeoManager()
     
-    def __unicode__(self): return '%s (%s)' % (self.id, self.zip)
+    def __unicode__(self): return '%s' % (self.zip)
     
     
 class Factoid(models.Model):
@@ -236,9 +247,9 @@ class Resource(models.Model):
             br['aq_voc_avoided_dbh'] +
             br['bvoc_dbh']) * 2.2
         summaries['annual_ozone'] = br['aq_ozone_dep_dbh'] * 2.2
-        summaries['annual_nox'] = br['aq_nox_dep_dbh'] * 2.2
-        summaries['annual_pm10'] = br['aq_pm10_dep_dbh'] * 2.2
-        summaries['annual_sox'] = br['aq_sox_dep_dbh'] * 2.2
+        summaries['annual_nox'] = br['aq_nox_dep_dbh'] + br['aq_nox_avoided_dbh'] * 2.2
+        summaries['annual_pm10'] = br['aq_pm10_dep_dbh'] + br['aq_pm10_avoided_dbh'] * 2.2
+        summaries['annual_sox'] = br['aq_sox_dep_dbh'] + br['aq_sox_avoided_dbh'] * 2.2
         summaries['annual_voc'] = br['aq_voc_avoided_dbh'] * 2.2
         summaries['annual_bvoc'] = br['bvoc_dbh'] * 2.2
         summaries['annual_co2_sequestered'] = br['co2_sequestered_dbh'] * 2.2
@@ -598,6 +609,8 @@ class Tree(models.Model):
             self.old_species.save()
         if hasattr(self,'species') and self.species:
             self.species.save()
+
+        super(Tree, self).save(*args,**kwargs) 
           
         #if n: 
         #    for nhood in n:
