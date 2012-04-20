@@ -166,7 +166,7 @@ def result_map(request):
     recent_edits = unified_history(recent_trees)
 
     #TODO return the recent_edits instead
-    latest_trees = Tree.objects.filter(present=True).order_by("-last_updated")[0:3]
+    latest_trees = Tree.objects.filter(present=True).exclude(last_updated_by__is_superuser=True).order_by("-last_updated")[0:3]
     latest_photos = TreePhoto.objects.exclude(tree__present=False).order_by("-reported")[0:8]
     
     return render_to_response('treemap/results.html',RequestContext(request,{
@@ -209,7 +209,7 @@ def tree_location_search(request):
     species = request.GET.get('species')
     if species:
         # first try to restrict search to the active tree species
-        species_trees = trees.filter(species__symbol=species)
+        species_trees = trees.filter(species__id=species)
         # to allow clicking other trees still...
         if species_trees.exists():
             trees = species_trees
@@ -527,6 +527,42 @@ def update_users(request):
         simplejson.dumps(response_dict, sort_keys=True, indent=4),
         content_type = 'text/plain'
     )
+
+@permission_required('auth.change_user')
+def user_opt_in_list(request):
+    users = UserProfile.objects.filter(active=True)
+    if 'username' in request.GET:
+        users = users.filter(user__username__icontains=request.GET['username'])
+    if 'email' in request.GET:
+        users = users.filter(user__email__icontains=request.GET['email'])
+    if 'status' in request.GET:
+        update_bool = request.GET['status'].lower() == "true"
+        users = users.filter(updates=update_bool)
+
+    return render_to_response('treemap/admin_emails.html',RequestContext(request, {'users': users}))
+
+@permission_required('auth.change_user')
+def user_opt_export(request, format):
+    users = UserProfile.objects.filter(active=True)
+    where = []
+    if 'username' in request.GET:
+        users = users.filter(user__username__icontains=request.GET['username'])
+        where.append(" a.username ilike '%" + request.GET['username'] + "%' ")
+    if 'email' in request.GET:
+        users = users.filter(user__email__icontains=request.GET['email'])
+        where.append(" a.email ilike '%" + request.GET['email'] + "%' ")
+    if 'status' in request.GET:
+        update_bool = request.GET['status'].lower() == "true"
+        users = users.filter(updates=update_bool)
+        where.append(" b.updates is " + str(update_bool) + " ")
+
+    sql = "select a.username, a.email, case when b.updates = 't' then 'True' when b.updates = 'f' then 'False' end as \"opt-in\" from auth_user as a, profiles_userprofile as b where b.user_id = a.id"
+    if len(where) > 0:
+        sql = sql + " and " + ' and '.join(where)
+
+    print sql
+    
+    return ogr_conversion('CSV', sql, name="emails", geo=False)    
 
 @permission_required('auth.change_user')
 def ban_user(request):
@@ -1050,7 +1086,7 @@ def _build_tree_search_result(request):
         # TODO: What about ones with 0 dbh?
         print '  .. now we have %d trees' % len(trees)
         #species_list = [s.id for s in species]
-        tile_query.append("dbh IS NULL")
+        tile_query.append(" (dbh IS NULL or dbh = 0) ")
     
     if not missing_current_dbh and 'diameter_range' in request.GET:
         min, max = map(float,request.GET['diameter_range'].split("-"))
@@ -1065,7 +1101,7 @@ def _build_tree_search_result(request):
         # TODO: What about ones with 0 dbh?
         print '  .. now we have %d trees' % len(trees)
         #species_list = [s.id for s in species]
-        tile_query.append("height IS NULL")
+        tile_query.append(" (height IS NULL or height = 0) ")
 
     if not missing_current_height and 'height_range' in request.GET:
         min, max = map(float,request.GET['height_range'].split("-"))
@@ -1259,7 +1295,7 @@ def zip_file(file_path,archive_name):
                 for f in files:
                     abs_file = os.path.join(root, f)
                     zipf = abs_file[len(file_path) + len(os.sep):]
-                    zipf = zipf.replace('sql_statement', 'trees')
+                    zipf = zipf.replace('sql_statement', archive_name)
                     z.write(abs_file, zipf)
         z.close()
         buffer.flush()
@@ -1267,9 +1303,9 @@ def zip_file(file_path,archive_name):
         buffer.close()
         return zip_stream
 
-def ogr_conversion(output_type, sql, extension=None):   
+def ogr_conversion(output_type, sql, extension=None, name="trees", geo=True):   
     dbsettings = settings.DATABASES['default'] 
-    tmp_dir = tempfile.mkdtemp() + "/trees" 
+    tmp_dir = tempfile.mkdtemp() + "/" + name 
     host = dbsettings['HOST']
     if host == '':
         host = 'localhost'
@@ -1278,20 +1314,23 @@ def ogr_conversion(output_type, sql, extension=None):
         tmp_name = tmp_dir + "/sql_statement." + extension
     else: 
         tmp_name = tmp_dir
-    if output_type == 'CSV':
-        geometry = 'GEOMETRY=AS_WKT'
-    else:
-        geometry = ''
-
-    command = ['ogr2ogr', '-sql', sql, '-f', output_type, tmp_name, 'PG:dbname=%s host=%s port=%s password=%s user=%s' % (dbsettings['NAME'], host, dbsettings['PORT'], dbsettings['PASSWORD'], dbsettings['USER']), '-lco', geometry ]
+    
+    command = ['ogr2ogr', '-sql', sql, '-a_srs', 'EPSG:4326', '-f', output_type,  tmp_name, 'PG:dbname=%s host=%s port=%s password=%s user=%s' % (dbsettings['NAME'], host, dbsettings['PORT'], dbsettings['PASSWORD'], dbsettings['USER']) ]
+    if output_type == 'ESRI SHAPEFILE':
+        command.append('-nlt')
+        command.append('POINT')
+    if output_type == 'CSV' and geo:
+        command.append('-lco')
+        command.append('GEOMETRY=AS_WKT')
     done = subprocess.call(command)
     if done != 0: 
-        return render_to_json({'status':'error'})
+        return render_to_json({'status':'error', 'command': command})
     else: 
-        zipfile = zip_file(tmp_dir,'trees')
+        zipfile = zip_file(tmp_dir, name)
         response = HttpResponse(zipfile, mimetype='application/zip')
-        response['Content-Disposition'] = 'attachment; filename=trees.zip'
+        response['Content-Disposition'] = 'attachment; filename=' + name + '.zip'
         return response
+
 
 def geo_search(request):
     """
@@ -1348,10 +1387,6 @@ def advanced_search(request, format='json'):
      - trees and associated summaries
      - neighborhood or zipcode and associated   summaries
     """
-    if settings.TILED_SEARCH_RESPONSE:
-        maximum_trees_for_display = 0
-    else:
-        maximum_trees_for_display = 500   
     maximum_trees_for_summary = 200000  
     response = {}
 
@@ -1383,64 +1418,34 @@ def advanced_search(request, format='json'):
     full_count = Tree.objects.count()
     esj = {}
     esj['total_trees'] = tree_count
-    #print 'tree count', tree_count   
 
-    if tree_count > maximum_trees_for_summary:
-        trees = []
-        if geog_obj:
-            esj = summaries
-            esj['benefits'] = benefits
-        else:
-            #someone selected a single species w/too many tree results.  dang....
-            # TODO - need to pull from cached results...
-            summaries = {}
-        
-
-    else:
-        esj['distinct_species'] = len(trees.values("species").annotate(Count("id")).order_by("species"))
-        #print 'we have %s  ..' % esj
-        #print 'aggregating..'
-
-        r = ResourceSummaryModel()
-        
-        with_out_resources = trees.filter(treeresource=None).count()
-        #print 'without resourcesums:', with_out_resources
-        resources = tree_count - with_out_resources
-        #print 'have resourcesums:', resources
-        
-        EXTRAPOLATE_WITH_AVERAGE = True
-
-        for f in r._meta.get_all_field_names():
-            if f.startswith('total') or f.startswith('annual'):
-                fn = 'treeresource__' + f
-                s = trees.aggregate(Sum(fn))[fn + '__sum'] or 0.0
-                # TODO - need to make this logic accesible from shortcuts.get_summaries_and_benefits
-                # which is also a location where summaries are calculated
-                # also add likely to treemap/update_aggregates.py (not really sure how this works)
-                if EXTRAPOLATE_WITH_AVERAGE and resources:
-                    avg = float(s)/resources
-                    s += avg * with_out_resources
-                        
-                setattr(r,f,s)
-                esj[f] = s
-        esj['benefits'] = r.get_benefits()
-
-        #print 'aggregated...'
+    r = ResourceSummaryModel()
     
+    with_out_resources = trees.filter(treeresource=None).count()
+    #print 'without resourcesums:', with_out_resources
+    resources = tree_count - with_out_resources
+    #print 'have resourcesums:', resources
     
-    if tree_count > maximum_trees_for_display:   
-         trees = []
-         response.update({'tile_query' : tile_query})
-        
-  
-    tj = [{
-          'id': t.id,
-          'lon': '%.12g' % t.geometry.x, 
-          'lat' : '%.12g' % t.geometry.y,
-          'cmplt' : t.is_complete()
-          } for t in trees]
+    EXTRAPOLATE_WITH_AVERAGE = True
 
-    response.update({'trees' : tj, 'summaries' : esj, 'geography' : geography, 'initial_tree_count' : tree_count, 'full_tree_count': full_count})
+    for f in r._meta.get_all_field_names():
+        if f.startswith('total') or f.startswith('annual'):
+            fn = 'treeresource__' + f
+            s = trees.aggregate(Sum(fn))[fn + '__sum'] or 0.0
+            # TODO - need to make this logic accesible from shortcuts.get_summaries_and_benefits
+            # which is also a location where summaries are calculated
+            # also add likely to treemap/update_aggregates.py (not really sure how this works)
+            if EXTRAPOLATE_WITH_AVERAGE and resources:
+                avg = float(s)/resources
+                s += avg * with_out_resources
+                    
+            setattr(r,f,s)
+            esj[f] = s
+    esj['benefits'] = r.get_benefits()
+
+    #print 'aggregated...'
+        
+    response.update({'tile_query' : tile_query, 'summaries' : esj, 'geography' : geography, 'initial_tree_count' : tree_count, 'full_tree_count': full_count})
     return render_to_json(response)
 
     

@@ -97,8 +97,13 @@ var tm = {
                     $("#species_search_id_cultivar").val(item.cultivar).change(); 
                 } else {
                     $("#species_search_id_cultivar").val("").change();
-                }    
+                } 
             });
+            if ($('#id_species_name')) {
+                tm.setupAutoComplete($('#id_species_name')).result(function(event, item) {
+                    $("#id_species_id").val(item.symbol).change();
+                });
+            }
             tm.setupSpeciesList();
             var spec = $.address.parameter("species");
             var cultivar = $.address.parameter("cultivar");
@@ -114,20 +119,14 @@ var tm = {
         var adv_active = false;
         $('#advanced').click(function() {
             if (!adv_active) {
-                if ($('#results').length > 0) {
-                    $('.filter-box').slideDown('slow');
-                }
+                $('.filter-box').slideDown('slow');
                 adv_active = true;
                 $('#arrow').attr('src',tm_static + 'static/images/v2/arrow2.gif');
-                //$('#filter_name')[0].innerHTML = 'Hide advanced filters';
             }    
             else {
-                if ($('#results').length > 0) {
-                    $('.filter-box').slideUp('slow');
-                }
+                $('.filter-box').slideUp('slow');
                 adv_active = false;
                 $('#arrow').attr('src',tm_static + 'static/images/v2/arrow1.gif');
-                //$('#filter_name')[0].innerHTML = 'Show advanced filters';          
             }
             return false;
         });
@@ -661,7 +660,8 @@ var tm = {
                     jQuery('#id_lat').val(olPoint.lat);
                     jQuery('#id_lon').val(olPoint.lon);
                     jQuery('#id_geocode_address').val(results[0].formatted_address)
-                    
+                    jQuery('#id_initial_map_location').val(olPoint.lat + "," + olPoint.lon);                   
+
                     jQuery('#update_map').html("Update Map");
                     jQuery("#mapHolder").show();
                     jQuery("#calloutContainer").show();
@@ -1244,15 +1244,7 @@ var tm = {
         //tm.current_selected_tile_overlay = new GTileLayerOverlay(tm.selected_tree_layer);
         //tm.map.addOverlay(tm.current_selected_tile_overlay);
     },
-            
-    cqlizeIds: function(trees) {
-        var cql_ids = [];
-        if (trees.length == 1) {return trees[0].id}
-        for(var i=0; i < trees.length; i++) {
-            cql_ids.push(trees[i].id);
-        }
-        return  cql_ids.join();
-    },
+   
     display_search_results : function(results){
         if (tm.vector_layer) {tm.vector_layer.destroyFeatures();}
         //if (tm.misc_markers) {tm.misc_markers.clearMarkers();}
@@ -1265,8 +1257,8 @@ var tm = {
             tm.display_summaries(results.summaries);
             
             if (results.initial_tree_count != results.full_tree_count && results.initial_tree_count != 0) {
-                if (results.trees.length > 0) {
-                    var cql = tm.cqlizeIds(results.trees);
+                if (results.featureids) {
+                    var cql = results.featureids;
                     delete tm.tree_layer.params.CQL_FILTER;
                     tm.tree_layer.mergeNewParams({'FEATUREID':cql});
                     tm.tree_layer.setVisibility(true);     
@@ -1668,7 +1660,7 @@ var tm = {
         '1': 'Landmark Tree',
         '2': 'Local Carbon Fund',
         '3': 'Fruit Gleaning Project',
-        '4': 'Historically Significant Tree'
+        '4': 'Just One Tree'
     },
     searchParams: {},
     pageLoadSearch: function () {

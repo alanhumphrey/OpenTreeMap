@@ -47,7 +47,7 @@
                 </ul>
                 <ul id="messageStats">
                     <li class="impact" id="gas">Greenhouse Gas Benefits</li>
-                    <li class="impactStat"><span id="annual_co2_avoided"> </span> lbs CO2 <span class="subnote">reduced</span></li>
+                    <li class="impactStat"><span id="annual_co2_reduced"> </span> lbs CO2 <span class="subnote">reduced</span></li>
                     <li class="impactStat">$<span id="benefits_greenhouse"> </span><span class="subnote"> saved</span></li>
                 </ul>
                 <ul id="messageStats">
@@ -57,7 +57,7 @@
                 </ul>
                 <ul id="messageStats">
                     <li class="impact" id="energy">Energy Benefits</li>
-                    <li class="impactStat"><span id="annual_electricity_conserved"> </span> kWh <span class="subnote">conserved</span></li>
+                    <li class="impactStat"><span id="annual_energy_conserved"> </span> kWh <span class="subnote">conserved</span></li>
                     <li class="impactStat">$<span id="benefits_energy"> </span><span class="subnote"> saved</span></li>
                 </ul>
                 <ul id="messageStats">
@@ -71,7 +71,7 @@
         {% endblock %}
 
         {% block top_right_panel %}
-            <div class="wrap">
+            <div class="wrap" id="results_map_wrap">
                 <div id="results_map">
 					<div class="mapToggle buttomSm">View Satellite</div>
                 </div>
@@ -91,7 +91,7 @@
                 <td class="image"><a href="{% url treemap_tree_detail tree.id %}">
                 
                 {% if tree.last_updated_by.get_profile.photo %}
-                    <img src="/media/{% thumbnail tree.last_updated_by.get_profile.photo 32x32 crop %}"
+                    <img src="{% thumbnail tree.last_updated_by.get_profile.photo 32x32 crop %}"
                         alt="image description" width="33" height="32" /></td> 
                 {% else %}
                     <img src="{{ STATIC_URL }}images/v2/defaultuser.gif" alt="image description" width="33" height="32" /></td>              
@@ -99,7 +99,7 @@
                 
                 {% comment %}
                 {% if tree.treephoto_set.count %}
-                    <img src="/media/{% thumbnail tree.treephoto_set.all|first|get:"photo" 32x32 crop %}"
+                    <img src="{% thumbnail tree.treephoto_set.all|first|get:"photo" 32x32 crop %}"
                         alt="image description" width="33" height="32" /></td> 
                 {% else %}
                     <img src="{{ STATIC_URL }}images/es/image10.gif" alt="image description" width="33" height="32" /></a></td> 
@@ -138,8 +138,8 @@
             
             {% for pic in latest_photos %}
                 <li>
-                    <a href="{{ pic.tree.get_absolute_url }}">
-                        <img src="/media/{% thumbnail pic.photo 43x42 %}" alt="image description" width="43" height="42" />
+                    <a href="{% url treemap.views.trees pic.tree.id %}">
+                        <img src="{% thumbnail pic.photo 43x42 %}" alt="image description" width="43" height="42" />
                     </a>
                 </li>
             {% endfor %}
