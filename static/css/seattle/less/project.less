@@ -3,6 +3,14 @@
 // Project specific overrides and customizations
 // ----------------------------------------------
 
+.t4_top_content {
+    margin-top: 2em;
+}
+// get started hero unit on main page
+#get_started {
+    position: relative;
+    left: 200px;
+}
 .search_well {
    padding:19px 0;
    background-color: @grayLighter;
@@ -50,6 +58,13 @@ legend {
     width: 13px;
     height: 13px;
 }
+.slider_wrapper {
+   padding: 0 15px;
+}
+.slider_wrapper span {
+   float:right;
+   font-style: italic;
+}
 
 #species_search_combo { display: none; }
 // styling for combobox
@@ -66,11 +81,21 @@ legend {
    margin-top: .75em;
 }
 .steward{
-    margin: 1em 0;
+    margin-top: 1em;
 }
 
 #advanced_search {
     background-color: @grayLighter;
+    display:none;
+}
+
+.dropcap {
+    font-size: 600%;
+    font-weight:bold;
+    color: @gray;
+    margin-right: 10px;
+    float:left;
+    line-height: 60px;
 }
 
 // total summary
@@ -135,4 +160,8 @@ legend {
     right: 10px;
     top: 10px;
     z-index: 1000;
+}
+
+#results_aside h2 + h3 {
+   text-align:center;
 }

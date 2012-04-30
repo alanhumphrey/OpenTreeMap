@@ -1487,8 +1487,8 @@ def geographies(request, model, id=''):
     if name:
         ns = ns.filter(name__iexact=name)[:1]
         #print ns
-    if list:        
-        ns = ns.exclude(aggregates__total_trees=0)
+    if list and not settings.SHOW_ALL_SEARCH:
+            ns = ns.exclude(aggregates__total_trees=0)
     if format.lower() == 'json':
         #print ns
         return render_to_geojson(ns, simplify=.0005)

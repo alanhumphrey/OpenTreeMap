@@ -41,8 +41,8 @@ var tm_icons = {
     };
 
 var tm = {
+    show_all_search: false,
     speciesData: null,
-    speciesDataListeners: [],
     map : null, 
     tree_markers : [],
     geocoded_locations: {},
@@ -82,320 +82,61 @@ var tm = {
     trackPageview: function(url) {        
         //_gaq.push(['_trackPageview', url]);        
     },
+    // set up search interface
     baseTemplatePageLoad:function() {
         //document.namespaces;
         $("#logo").click(function() {
         //    location.href="/home";
         });        
+        jQuery("#advanced_search").collapse('hide')
+	    .on('shown', function() {
+		$("#advanced_filters i")
+		    .removeClass('icon-chevron-right')
+		    .addClass('icon-chevron-down');
+		var min_updated, max_updated;
+		tm.initializeSliders(1970, new Date().getFullYear(), min_updated, max_updated, 0, '16');
+		if (! $(this).is(":visible")) {
+		    $(this).show();
+		}
+	    })
+	    .on('hidden', function() {
+		$("#advanced_filters i")
+		    .removeClass('icon-chevron-down')
+		    .addClass('icon-chevron-right');
+		var min_updated, max_updated;
+		reset_search_parameters(1970, new Date().getFullYear(), min_updated, max_updated, 0, '16');
+	    });
+
         jQuery.getJSON(tm_static + 'species/json/', function(species){
             tm.speciesData = species;
-
-         /* tm.setupAutoComplete($('#species_search_input'));
-            $('#species_search_input').bind( "autocompleteselect", (function(event, ui) {
-                $("#species_search_id").val(ui.item.id).change(); 
-                if (ui.item.cultivar) {
-                    $("#species_search_id_cultivar").val(ui.item.cultivar).change(); 
-                } else {
-                    $("#species_search_id_cultivar").val("").change();
-                }
-		$("#species_search_input").val(ui.item.cname + " / " + ui.item.sname);
-		return false;
-            }));
-*/
             tm.setupSpeciesList();
 	    $("#species_search_combo").combobox();
-            var spec = $.address.parameter("species");
-            var cultivar = $.address.parameter("cultivar");
-            tm.updateSpeciesFields("search_species",spec, cultivar);
-            for (var i = 0; i < tm.speciesDataListeners.length; i++) {
-                tm.speciesDataListeners[i]();
-            }    
         });
         jQuery.getJSON(tm_static + 'neighborhoods/', {format:'json', list: 'list'}, function(nbhoods){
             tm.locations = nbhoods;
             tm.setupLocationList();
+	    $("#neighborhood_search_combo").combobox();
         });
 
-        jQuery("#advanced_search").collapse('hide')
-	    .on('shown', function() {
-		$("#advanced i").removeClass('icon-chevron-right')
-		                .addClass('icon-chevron-down');
-	    })
-	    .on('hidden', function() {
-		$("#advanced i").removeClass('icon-chevron-down')
-		                .addClass('icon-chevron-right');
-	    });
-
-        $("#location_search_input").blur(function(evt) {
-            if (!this.value) {
-                $("#location_search_input").val("");
-                $(this).val(tm.initial_location_string);
-            }    
-        }).keydown(function(evt) {
-            if (evt.keyCode == 13) {
-                $("#location_go").click();
-            }
-        });
-        
-        $("#species_search_input").blur(function(evt) {
-            if (!this.value) {
-                $("#species_search_id").val("");
-                $(this).val(tm.initial_species_string);
-            }    
-        }).keydown(function(evt) {
-            if (evt.keyCode == 13) {
-                $("#species_go").click();
-            }
-        });
-        $("#species_search_id").change(function(evt) {
-            if (this.value) {
-                tm.searchParams['species'] = this.value;
-            }
-        });
-//abh -changed _go to _goo to keep this function from being called.  TODO move code?
-        $("#location_goo").click(function(evt) {
-	    console.log('in location_go');
-            if ($('body')[0].id == "results") {
-                if ($("#location_search_input")[0].value && $("#location_search_input").val() != tm.initial_location_string) {
-                //if ($("#location_search_input")[0].value ) {
-                    tm.handleSearchLocation($("#location_search_input")[0].value);
-                } else {
-                    $("#location_search_input").val(tm.initial_location_string);
-                    delete tm.searchParams['location'];
-                    delete tm.searchParams['geoName'];
-                    if (tm.misc_markers) {tm.misc_markers.clearMarkers();}
-                    if (tm.map) {
-                        tm.map.setCenter(
-                            new OpenLayers.LonLat(tm.map_center_lon, tm.map_center_lat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
-                            , tm.start_zoom);
-                    }
-		    console.log('location_go click'); 
-                    tm.updateSearch();
-		    console.log('location_go click back from updateSearch'); 
-		    return false;
-                } 
-            } else {
-		console.log('trigger search 1'); 
-                triggerSearch();
-		e.preventDefault();
-            }
-        });
-        
-        $("#species_go").click(function(evt) {
-            $("#location_go").click();
-        });
-        $("#searchSpeciesBrowse").click(function(evt) {
-            $("#searchSpeciesList").slideToggle();
-            tm.trackEvent('Search', 'List Species');
-        });
-        $("#searchLocationBrowse").click(function(evt) {
-            $("#searchNBList").slideToggle();
-            tm.trackEvent('Search', 'List Location');
-        });
-
-        // todo - clean this logic up...
-        if (jQuery.urlParam('diameter') || jQuery.urlParam('date') || jQuery.urlParam('characteristics') ||  jQuery.urlParam('advanced') )
-        {
-            //TODO: might be causing duplicate search
-           // jQuery('#advanced').click();
-        }
-        function triggerSearch() {
-	    console.log('triggerSearch');
-            var q = $.query.empty();
-            if ($("#location_search_input").val() != tm.initial_location_string) { 
-                q = q.set("location", $("#location_search_input").val());
-            }
-	    if ( $("#species_search_combo").val() &&  $("#species_search_combo").val()  > -1 ) {
-		$("#species_search_id").val( tm.speciesData[ $("#species_search_combo").val() ].id );
-                q = q.set("species", $("#species_search_id").val());
-            }
-            if ($("#species_search_id_cultivar").val()) {
-                q = q.set("cultivar", $("#species_search_id_cultivar").val());
-            }
-	    if ( $("#advanced_search").hasClass('in') ) {
-                q = q.set('advanced', 'open');
-            }    
-	    $("#options_form input:checked").each(function(idx, item){
-		q = q.set(item.id, "true");
-	    });
-
-            window.location.href = tm_static + "map/#" + decodeURIComponent(q.toString());
-            return false;
-        }
-        $("#search_form").submit(triggerSearch);    
-        $("#advanced").click(function() {
-            tm.advancedClick = true;
-            //triggerSearch();
-        });   
-        $.address.init(function(event){
-//	    console.log('init');
-	}).externalChange(function(event){
-	    console.log('got external change');
-	});
-            
-        tm.add_favorite_handlers('/trees/favorites/create/', '/trees/favorites/delete/');
-    },    
-    resultsTemplatePageLoad: function(min_year, current_year, min_updated, max_updated, min_plot, max_plot) {   
-	console.log('resultsTemplatePageLoad'); 
-        tm.init_map('results_map');
-
-/*        var spp = jQuery.urlParam('species');
-        if (spp) {
-            jQuery('#heading_location').html(spp);
-            }
-*/        
-        $.address.externalChange(tm.pageLoadSearch);
-        $(".characteristics input").change(function(evt) { 
-            tm.searchParams[this.id] = this.checked ? 'true' : undefined; 
-        });
-        $(".project_trees input").change(function(evt) { 
-            tm.searchParams[this.id] = this.checked ? 'true' : undefined; 
-        });
-        $(".outstanding input").change(function(evt) { 
-            tm.searchParams[this.id] = this.checked ? 'true' : undefined; 
-        });
-        $(".plot_type input").change(function(evt) { 
+        $(".filter_box input[type=checkbox]").change(function(evt) { 
             tm.searchParams[this.id] = this.checked ? 'true' : undefined; 
         });
         
-        $(".input-box input").change(function(evt) { 
+        $(".steward input").change(function(evt) { 
             tm.searchParams[this.id] = this.value; 
         });
-        var curmin = 0;
-        var curmax = 50;
-        $("#diameter_slider").slider({'range': true, max: 50, min: 0, values: [0, 50],
-            slide: function() { 
-                var min = $(this).slider('values', 0)
-                var max = $(this).slider('values', 1)
-                $('#min_diam').html(min);
-                $('#max_diam').html(max);
-            },    
-            change: function() {
-                var min = $(this).slider('values', 0)
-                var max = $(this).slider('values', 1)
-                $('#min_diam').html(min);
-                $('#max_diam').html(max);
-                tm.searchParams['diameter_range'] = min+'-'+max;
-            }
-        });
-        $("#height_slider").slider({'range': true, max: 200, min: 0, values: [0, 200],
-            slide: function() { 
-                var min = $(this).slider('values', 0)
-                var max = $(this).slider('values', 1)
-                $('#min_height').html(min);
-                $('#max_height').html(max);
-            },    
-            change: function() {
-                var min = $(this).slider('values', 0)
-                var max = $(this).slider('values', 1)
-                $('#min_height').html(min);
-                $('#max_height').html(max);
-                tm.searchParams['height_range'] = min+'-'+max;
-            }
-        });
-        
-        $("#planted_slider")[0].updateDisplay = function() {
-            var min = $("#planted_slider").slider('values', 0)
-            var max = $("#planted_slider").slider('values', 1)
-            $('#min_planted').html(min);
-            $('#max_planted').html(max);
-        }
-        $("#planted_slider").slider({'range': true, min: min_year, max: current_year,
-            values: [min_year, current_year],
-            slide: function() { 
-                $("#planted_slider")[0].updateDisplay();
-            },
-            change: function() {
-                $("#planted_slider")[0].updateDisplay();
-                var min = $("#planted_slider").slider('values', 0)
-                var max = $("#planted_slider").slider('values', 1)
-                tm.searchParams['planted_range'] = min+'-'+max;
-            }
-        });
-        $("#planted_slider")[0].updateDisplay();
-        
-        $("#updated_slider")[0].updateDisplay = function() {
-            var min = $("#updated_slider").slider('values', 0)
-            var min_d = new Date(parseInt(min) * 1000);
-            var max = $("#updated_slider").slider('values', 1)
-            var max_d = new Date(parseInt(max) * 1000);
-            $('#min_updated').html(tm.dateString(min_d));
-            $('#max_updated').html(tm.dateString(max_d));
-        }        
 
-        $("#updated_slider").slider({'range': true, min: min_updated, max: max_updated,
-            values: [min_updated, max_updated],
-            slide: function() {
-                $("#updated_slider")[0].updateDisplay();
-            },    
-            change: function() {
-                $("#updated_slider")[0].updateDisplay();
-                var min = $("#updated_slider").slider('values', 0)
-                var max = $("#updated_slider").slider('values', 1)
-                tm.searchParams['updated_range'] = min+'-'+max;
-            }
-        });    
-        $("#updated_slider")[0].updateDisplay();
-        
-        if (!tm.isNumber(max_plot) && max_plot.indexOf('+') != -1) {
-            max_p = parseInt(max_plot.split('+')[0]) + 1;
-            m_text = max_p - 1 + "+"
-            $("#plot_slider").slider({'range': true, max: max_p, min: min_plot, values: [min_plot, max_p],
-                slide: function() { 
-                    var min = $(this).slider('values', 0)
-                    var max = $(this).slider('values', 1)
-                    $('#min_plot').html(min);
-                    if (max == max_p) {max = m_text;}
-                    else {$('#max_plot').html(max);}
-                },    
-                change: function() {
-                    var min = $(this).slider('values', 0)
-                    var max = $(this).slider('values', 1)
-                    $('#min_plot').html(min);
-                    if (max == max_p) {$('#max_plot').html(m_text);tm.searchParams['plot_range'] = min+'-100';}
-                    else {$('#max_plot').html(max);tm.searchParams['plot_range'] = min+'-'+max;}
-                    
-                }
-            });
-        }
-        else {
-            $("#plot_slider").slider({'range': true, max: max_plot, min: min_plot, values: [min_plot, max_plot],
-                slide: function() { 
-                    var min = $(this).slider('values', 0)
-                    var max = $(this).slider('values', 1)
-                    $('#min_plot').html(min);
-                    $('#max_plot').html(max);
-                },    
-                change: function() {
-                    var min = $(this).slider('values', 0)
-                    var max = $(this).slider('values', 1)
-                    $('#min_plot').html(min);
-                    $('#max_plot').html(max);
-                    tm.searchParams['plot_range'] = min+'-'+max;
-                }
-            });
-        }
-       
-        
-        $("#species_search_input").change(function(evt) {
-            if (this.value === "") {
-                $("#species_search_id").val("");
-                $(this).val(tm.initial_species_string);
-                delete tm.searchParams['species'];
-            }    
-        });
-
-        $("#close-filters").click(function(evt) {
+	function reset_search_parameters(min_year, current_year, min_updated, max_updated, min_plot, max_plot) {
+	    console.log('in reset_search_parameters');
             $("#diameter_slider").slider('option', 'values', [0, 50]);
-                $('#min_diam').html(0);
-                $('#max_diam').html(50);
+            $('#diameter').html("0 inches - 50 inches");
             $("#planted_slider").slider('option', 'values', [min_year, current_year]);
-                $("#planted_slider")[0].updateDisplay();
+	    $("#planted_slider").slider("values", 0, min_year);
+	    $("#planted_slider").slider("values", 1, current_year);
             $("#updated_slider").slider('option', 'values', [min_updated, max_updated]);
-                $("#updated_slider")[0].updateDisplay();
+//                $("#updated_slider")[0].updateDisplay();
             $("#height_slider").slider('option', 'values', [0, 200]);
-                $('#min_height').html(0);
-                $('#max_height').html(200);
+                $('#height').html("0 feet - 200 feet");
             if (!tm.isNumber(max_plot) && max_plot.indexOf('+') != -1) {
                 max_p = parseInt(max_plot.split('+')[0]) + 1;
                 m_text = max_p - 1 + "+"
@@ -428,113 +169,166 @@ var tm = {
             for(var i=0;i<checks.length;i++) {
                 delete tm.searchParams[checks[i].id];
             }
-            $("#options_form input:checked").attr('checked', false)  
-	    console.log('closefiltersclick'); 
-            tm.updateSearch();
+            $("#options_form input[type=checkbox]").attr('checked', false)  
+//            tm.updateSearch();
             tm.trackEvent('Search', 'Reset Advanced');
-        });        
+        }       
+
+        // todo - clean this logic up...
+        if (jQuery.urlParam('diameter') || jQuery.urlParam('date') || jQuery.urlParam('characteristics') ||  jQuery.urlParam('advanced') )
+        {
+            //TODO: might be causing duplicate search
+           // jQuery('#advanced').click();
+        }
+
+        $("#search_form").submit( function() {
+	    console.log('in search_form submit');
+            window.location.href = tm_static + "map/#" + decodeURIComponent( tm.serializeSearchParams() );
+            return false;
+        });
+        
+
+        $.address.init(function(event){
+	    console.log('init');
+	}).externalChange(function(event){
+	    console.log('got external change');
+	});
+            
+        tm.add_favorite_handlers('/trees/favorites/create/', '/trees/favorites/delete/');
+    },    
+    resultsTemplatePageLoad: function(min_year, current_year, min_updated, max_updated, min_plot, max_plot) {   
+	console.log('resultsTemplatePageLoad'); 
+        tm.init_map('results_map');
+
+//        $.address.externalChange(tm.pageLoadSearch);
+
+	tm.initializeSliders(min_year, current_year, min_updated, max_updated, min_plot, max_plot);
+        
+        $("#species_search_combo").change(function(evt) {
+            if (this.value === "-1") {
+                $(this).val(tm.initial_species_string);
+                delete tm.searchParams['species'];
+            }    
+        });
+
+        $("#search_form").submit( function() {
+
+	    console.log('in results template search_form submit');
+            if ($("#neighborhood_search_combo").val() && $("#neighborhood_search_combo").val() != tm.initial_location_string) {
+                tm.handleSearchLocation( $("#neighborhood_search_combo").val() );
+            } else {
+                $("#location_search_input").val(tm.initial_location_string);
+                delete tm.searchParams['location'];
+                delete tm.searchParams['geoName'];
+                if (tm.misc_markers) {tm.misc_markers.clearMarkers();}
+                if (tm.map) {
+                    tm.map.setCenter(
+                        new OpenLayers.LonLat(tm.map_center_lon, tm.map_center_lat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
+                        , tm.start_zoom);
+                }
+		var qstr = tm.serializeSearchParams();
+                tm.updateSearch( qstr );
+		console.log('search_form submit back from updateSearch'); 
+
+		$("#kml_link").attr('href', tm_static + "search/kml/"+qstr);
+		$("#csv_link").attr('href', tm_static + "search/csv/"+qstr);
+		$("#shp_link").attr('href', tm_static + "search/shp/"+qstr);
+
+		return false;
+            } 
+        });
 	console.log('end resultsTemplatePageLoad'); 
     },    
-    
+    initializeSliders: function(min_year, current_year, min_updated, max_updated, min_plot, max_plot) {
+	min_updated = min_updated || 1278782497;
+        max_updated = max_updated || 1335392761;
+        $("#diameter_slider").slider({'range': true, max: 50, min: 0, values: [0, 50],
+				      slide: function( event, ui ) { 
+					  $("#diameter").html(ui.values[0] + " inches - " + 
+							      ui.values[1] + " inches");
+				      },    
+				      change: function( event, ui ) {
+					  tm.searchParams['diameter_range'] = ui.values[0] + '-' + ui.values[1];
+				      }
+				     });
+        $("#height_slider").slider({'range': true, max: 200, min: 0, values: [0, 200],
+				    slide: function(event, ui) { 
+					  $("#height").html(ui.values[0] + " feet - " + 
+							    ui.values[1] + " feet");
+				    },    
+				    change: function(event, ui) {
+					  tm.searchParams['height_range'] = ui.values[0] + '-' + ui.values[1];
+            }
+        });
+        
+        $("#planted_slider").slider({'range': true, max: new Date().getFullYear(), min: 1970, values: [min_year, current_year],
+				    slide: function(event, ui) { 
+					  $("#planted").html(ui.values[0] + " - " + ui.values[1]);
+				    },    
+				    change: function(event, ui) {
+					  tm.searchParams['planted_range'] = ui.values[0] + '-' + ui.values[1];
+            }
+        });
+        
+
+        $("#updated_slider")[0].updateDisplay = function() {
+	    var min = $("#updated_slider").slider('values', 0)
+	    var min_d = new Date(parseInt(min) * 1000);
+	    var max = $("#updated_slider").slider('values', 1)
+	    var max_d = new Date(parseInt(max) * 1000);
+	    $("#updated").html(tm.dateString(min_d) + " - " + tm.dateString(max_d));
+         }        
+
+        $("#updated_slider").slider({'range': true, min: min_updated, max: max_updated,
+				     values: [min_updated, max_updated],
+				     slide: function( event, ui ) {
+					 $("#updated_slider")[0].updateDisplay();
+				     },    
+            change: function() {
+                $("#updated_slider")[0].updateDisplay();
+                var min = $("#updated_slider").slider('values', 0)
+                var max = $("#updated_slider").slider('values', 1)
+                tm.searchParams['updated_range'] = min+'-'+max;
+            }
+        });    
+        $("#updated_slider")[0].updateDisplay();
+        
+	var max_p = max_plot;
+	var m_text = max_p;
+	if (!tm.isNumber(max_plot) && max_plot.indexOf('+') != -1) {
+            max_p = parseInt(max_plot.split('+')[0]) + 1;
+            m_text = max_p - 1 + "+"
+	}
+        $("#plot_slider").slider({'range': true, max: 16, min: 0, values: [min_plot, max_p],
+				  slide: function(event, ui) { 
+				      var max_text = ui.values[1] == max_p ? m_text : ui.values[1];
+				      $('#plot_size').html(ui.values[0] + " feet - " + max_text + " feet");
+				  },    
+				  change: function(event , ui) {
+				      tm.searchParams['plot_range'] = ui.values[0] + '-' + ui.values[1];
+				  }
+				 });
+    },    
     setupSpeciesList: function() {
         $('#species_search_combo').append('<option value="-1">All trees</option>');
         for(var i=0; i<tm.speciesData.length;i++) {
-//            if (tm.speciesData[i].count == 0) {continue;}
+            if (tm.speciesData[i].count == 0 && ! tm.show_all_search) {continue;}
 	    $('#species_search_combo').append('<option value="' + i + '">' + 
 					      tm.speciesData[i].cname + ' [' +
 					      tm.speciesData[i].sname + ']');
-
 	}
-
-	$('#species_search_combo').siblings('input').change(function() {
-	    console.log('got change on input');
-	});
-
-	$('#species_search_combo').select(function() {
-	    console.log('got select on combo');
-	});
-/*
-
-        $('#species_search_combo').siblings('input').bind( "autocompleteselect", (function(event, ui) {
-            $("#species_search_id").val(ui.item.id).change(); 
-            if (ui.item.cultivar) {
-                $("#species_search_id_cultivar").val(ui.item.cultivar).change(); 
-            } else {
-                $("#species_search_id_cultivar").val("").change();
-            }
-	    $("#species_search_combo").siblings("input").val(ui.item.cname + " / " + ui.item.sname);
-	    return false;
-        }));
-/*
-
-        var ul = $("<ul id='s_list' style='max-height:180px; overflow:auto;'></ul>");
-        $("#searchSpeciesList").append(ul).hide();
-        for(var i=0; i<tm.speciesData.length;i++) {
-//            if (tm.speciesData[i].count == 0) {continue;}
-            var c = "ac_odd";
-            if (i%2 == 0) {c = 'ac-even';}
-            ul.append("<li id='" + tm.speciesData[i].id + "' class='" + c + "'>" + tm.speciesData[i].cname + " [" + tm.speciesData[i].sname + "]</li>")
-        }
-        
-        $("#s_list > li").hover(function(evt) {
-            $(this).addClass("ac_over")
-        }, function(evt) {
-            $(this).removeClass("ac_over")
-        }).click(function(evt) {
-            $('#species_search_input').val(this.innerHTML)
-            $("#species_search_id").val(this.id).change();
-            $("#searchSpeciesList").toggle();
-        });
- */       
     },
     
     setupLocationList: function() {
-        var ul = $("<ul id='n_list' style='max-height:180px; overflow:auto;'></ul>");
-        $("#searchNBList").append(ul).hide();
-        var states = {}
-        for(var i=0; i<tm.locations.features.length;i++) {
-            var feature = tm.locations.features[i];
-            var st_co = feature.properties.state + "-" + feature.properties.county;
-            if (!states[st_co])
-            {
-                states[st_co] = []
-            }
-            states[st_co].push(feature);
-        }
-
-        for(var state in states) {
-            ul.append("<li class='header'>" + state + " County</li>")
-            var entries = states[state];
-            for(i=0;i<entries.length;i++) {
-                var c = "ac_odd";
-                if (i%2 == 0) {c = 'ac-even';}
-                var name = entries[i].properties.name;
-                ul.append("<li id='" + name + "' class='" + c + "'>" + name + "</li>")
-            }
-        }
-
-        $("#n_list > li").hover(function(evt) {
-            $(this).addClass("ac_over")
-        }, function(evt) {
-            $(this).removeClass("ac_over")
-        }).click(function(evt) {
-            if ($(this).hasClass("header")) {return;}
-            $('#location_search_input').val(this.innerHTML);
-            $("#searchNBList").toggle();
-        });
-        
-        if ($("#s_nhood")) {
-            select_nh = $("#s_nhood");
-            for(var state in states) {
-                select_nh.append("<option class='header' disabled='disabled'>" + state + " County</li>")
-                var entries = states[state];
-                for(i=0;i<entries.length;i++) {
-                    var name = entries[i].properties.name;
-                    select_nh.append("<option value='" + name + "' >" + name + "</li>")
-                }
-            }
-        }    
+//	$('#neighborhood_search_combo').append('<option value="-1">Seattle, WA</option>');
+	$('#neighborhood_search_combo').append('<option>Seattle, WA</option>');
+	$.each(tm.locations.features, function (index, value) {
+/*	    $('#neighborhood_search_combo').append('<option value="' + index + '">' +
+						   value.properties.name);
+*/          $('#neighborhood_search_combo').append('<option>' + value.properties.name + '</option>');
+	});
     },
+
     dateString: function(dateObj) {
         var d = (dateObj.getYear()+1900) + "-" +
             ((""+(dateObj.getMonth() + 1)).length > 1 ?  (dateObj.getMonth()+1) : "0"+(dateObj.getMonth()+1)) + "-" + 
@@ -1774,17 +1568,40 @@ var tm = {
                 if (key == "advanced") {
 		    jQuery("#advanced_search").collapse('show');
                 }    
-
             }    
         }
         tm.loadingSearch = false;
 	console.log('about to call updatesearch 1');
-        tm.updateSearch();
+        tm.updateSearch( tm.serializeSearchParams() );
 	console.log('end pageLoadSearch');
 
     },
     serializeSearchParams: function() {
         var q = $.query.empty(); 
+
+//        if ($("#neighborhood_search_combo").val() != tm.initial_location_string && $("#neighborhood_search_combo").val() > -1) { 
+        if ($("#neighborhood_search_combo").val() != tm.initial_location_string ) { 
+            q = q.set("location", $("#neighborhood_search_combo").val());
+        }
+	if ( $("#species_search_combo").val() &&  $("#species_search_combo").val() > -1 ) {
+	    var tree = tm.speciesData[ $("#species_search_combo").val() ];
+//	    $("#species_search_id").val( tm.speciesData[ $("#species_search_combo").val() ] );
+//            q = q.set("species", $("#species_search_id").val());
+            q = q.set("species", tree.id);
+	    if ( tree.cultivar ) {
+		q = q.set("cultivar", tree.cultivar);
+	    }
+        }
+/*        if ($("#species_search_id_cultivar").val()) {
+            q = q.set("cultivar", $("#species_search_id_cultivar").val());
+        }
+*/	if ( $("#advanced_search").hasClass('in') ) {
+            q = q.set('advanced', 'open');
+        }    
+	$("#options_form input:checked").each(function(idx, item){
+	    q = q.set(item.id, "true");
+	});
+
         for (var key in tm.searchParams) {
             if (!tm.searchParams[key]){
                 continue;
@@ -1792,38 +1609,30 @@ var tm = {
             var val = tm.searchParams[key];
             q = q.set(key, val);
         }
+        if (tm.searchParams['location']) {
+            var val = tm.searchParams['location'];
+	    var coords = tm.geocoded_locations[val];
+            if (!coords) {return false;}
+            if (coords.join) {
+                q.SET('location', coords.join(','));
+            } else {
+                q.SET('location', coords);
+            }
+        }
         var qstr = decodeURIComponent(q.toString()).replace(/\+/g, "%20")
         if (qstr != '?'+$.address.queryString()) {
             if (!tm.loadingSearch) { 
                 $.address.value(qstr);
             }
         }
-       
-        if (tm.searchParams['location']) {
-            var val = tm.searchParams['location'];
-            console.log('in serializesearchparams val = ' + val);
-	    var coords = tm.geocoded_locations[val];
-            console.log('in serializesearchparams coords = ' + coords);
-            if (!coords) {return false;}
-            if (coords.join) {
-                q.SET('location', coords.join(','));
-            }
-            else {
-                q.SET('location', coords);
-            }
-            qstr = decodeURIComponent(q.toString()).replace(/\+/g, "%20")
-        }
-        $("#kml_link").attr('href', tm_static + "search/kml/"+qstr);
-        $("#csv_link").attr('href', tm_static + "search/csv/"+qstr);
-        $("#shp_link").attr('href', tm_static + "search/shp/"+qstr);
         return qstr;
     },
     
 
-    updateSearch: function() {
+    updateSearch: function( qs ) {
 	console.log('updateSearch');
         if (tm.loadingSearch) { return; }
-        var qs = tm.serializeSearchParams();
+//        var qs = tm.serializeSearchParams();
         if (qs === false) { return; }
 	console.log('qs = ' + qs);
         tm.trackPageview('/search/' + qs);
@@ -1859,42 +1668,12 @@ var tm = {
     },
 
     updateLocationFields: function(loc){
-	console.log('updatelocationfields ' + loc);
         if (loc){
             $("#location_search_input").val(loc);
-            //var url = '/neighborhoods/?format=json&location=' + loc;
             tm.handleSearchLocation(loc);
-            //tm.geocode(loc, true, tm.display_geography);
-            //jQuery.getJSON(url, tm.display_geography);
         }
-        
     },
     
-    updateSpeciesFields: function(field_prefix,spec, cultivar){
-        if (!tm.speciesData) { 
-            var func = function() { 
-                tm.updateSpeciesFields(field_prefix, spec, cultivar);
-            }
-            tm.speciesDataListeners.push(func);
-            return;
-        }
-        if (spec) {
-            $("#" + field_prefix + "_id").val(spec);
-            if (cultivar) {
-                $("#" + field_prefix + "_id_cultivar").val(cultivar);
-            } else {
-                $("#" + field_prefix + "_id_cultivar").val("");
-            }    
-
-            for (var i = 0; i < tm.speciesData.length; i++) {
-                if (tm.speciesData[i].symbol == spec && (cultivar ? tm.speciesData[i].cultivar == cultivar : tm.speciesData[i].cultivar == '')) {
-                    $("#" + field_prefix + "_input").val(tm.speciesData[i].cname + " / " + tm.speciesData[i].sname);
-                }
-            }
-        }    
-    },
-
-
     add_favorite_handlers : function(base_create, base_delete) {
         $('a.favorite.fave').live('click', function(e) {
             var pk = $(this).attr('id').replace('favorite_', '');

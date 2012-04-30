@@ -28,7 +28,7 @@ tm.init_base_map = function(div_id, controls){
 	    maxExtent: max_extent,
 	    restrictedExtent: restricted_extent,
             units: 'm',
-            projection: new OpenLayers.Projection("EPSG:102100"),
+            projection: new OpenLayers.Projection("EPSG:3785"),
             displayProjection: new OpenLayers.Projection("EPSG:4326"),
             controls: [new OpenLayers.Control.Attribution(),
                        new OpenLayers.Control.Navigation(),
@@ -42,7 +42,7 @@ tm.init_base_map = function(div_id, controls){
 	    maxExtent: max_extent,
 	    restrictedExtent: restricted_extent,
             units: 'm',
-            projection: new OpenLayers.Projection("EPSG:102100"),
+            projection: new OpenLayers.Projection("EPSG:3785"),
             displayProjection: new OpenLayers.Projection("EPSG:4326"),
             controls: controls
         });

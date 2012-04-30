@@ -7,13 +7,13 @@
     {% block extra_onready %}
         //tm.init_map('index_map');    
         //todo less js on the homepage (eg no gmaps stuff?)
-        tm.initial_location_string = "Bootstrap, Anywhere";
+        tm.initial_location_string = "Seattle, WA";
         tm.initial_species_string = "All trees";
 
     {% endblock %}
 
         {% block top_left_panel %}
-           <div class='hero-unit'>
+           <div class='hero-unit' id='get_started'>
 	     <h2>Creating a map of our urban forest one tree at a time...</h2>
 	     <p>You can: Find a tree, add a tree, edit a tree</p>
              <a href="{% url treemap.views.result_map %}" class='btn btn-primary btn-large'>Get Started</a>

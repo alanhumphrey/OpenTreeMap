@@ -1,10 +1,10 @@
 import os
-import logging
+#import logging
 
-logging.basicConfig(
-    level = logging.DEBUG,
-    format = '%(asctime)s %(levelname)s %(message)s',
-)
+#logging.basicConfig(
+#    level = logging.DEBUG,
+#    format = '%(asctime)s %(levelname)s %(message)s',
+#)
 
 GEOSERVER_URL = 'http://sasdev.dnsalias.org:8080/geoserver/wms?transparent=true'
 TILECACHE_URL = 'http://tilecache.sasdev.dnsalias.org/tilecache.cgi?'
@@ -15,17 +15,16 @@ TILECACHE_LAYER = 'cc:neighborhood'
 # in javascript depending on the google base layer being used
 #TC_URL = 'http://tilecache.urbanforestmap.org/tiles/1.0.0/trees/'
 TC_URL = 'http://tilecache.sasdev.dnsalias.org/tiles/1.0.0/trees/'
-
 COPYRIGHT = '(c) Canopy Connections'
 
 # directory name for this installation - used to build url to static data (css, js, images) 
-SITE_LOCATION = 'bootstrap'
+SITE_LOCATION = 'seattle'
 
 # TODO - figure out this flag
 PENDING_ON = False
 
 # name of the area of interest - used in an error message when user tries to go out of bounds
-REGION_NAME = 'Seattle'
+REGION_NAME = 'seattle'
 
 # Your Google API Key
 GOOGLE_API_KEY = 'abcdf'
@@ -41,6 +40,10 @@ ROOT_URL = 'http://canopyconnections.org'
 
 # if true, max tree for display is 0, otherwise 500
 TILED_SEARCH_RESPONSE = False
+
+# if true, show all species/neighborhoods in search dropdowns
+# if false, show only species/neighborhoods with trees
+SHOW_ALL_SEARCH = True
 
 # settings for qs_tiles/views.py  - qs_tiles doesn't appear to be used.
 # separate instance of tilecache for dynamic selection tiles
@@ -117,7 +120,7 @@ SITE_ID = 1
 SECRET_KEY = 'insecure'
 
 TEMPLATE_DIRS = (
-    os.path.join(os.path.dirname(__file__), 'templates/bootstrap'),
+    os.path.join(os.path.dirname(__file__), 'templates/seattle'),
     os.path.join(os.path.dirname(__file__), 'templates'),
 )
 

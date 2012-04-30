@@ -3988,6 +3988,13 @@ a.thumbnail:hover {
 .invisible {
   visibility: hidden;
 }
+.t4_top_content {
+  margin-top: 2em;
+}
+#get_started {
+  position: relative;
+  left: 200px;
+}
 .search_well {
   padding: 19px 0;
   background-color: #eeeeee;
@@ -4033,6 +4040,13 @@ legend {
     width: 13px;
   height: 13px;
 }
+.slider_wrapper {
+  padding: 0 15px;
+}
+.slider_wrapper span {
+  float: right;
+  font-style: italic;
+}
 #species_search_combo {
   display: none;
 }
@@ -4051,10 +4065,19 @@ legend {
   margin-top: .75em;
 }
 .steward {
-  margin: 1em 0;
+  margin-top: 1em;
 }
 #advanced_search {
   background-color: #eeeeee;
+  display: none;
+}
+.dropcap {
+  font-size: 600%;
+  font-weight: bold;
+  color: #555555;
+  margin-right: 10px;
+  float: left;
+  line-height: 60px;
 }
 #totals a {
   margin-left: 10px;
@@ -4121,4 +4144,7 @@ legend {
   right: 10px;
   top: 10px;
   z-index: 1000;
+}
+#results_aside h2 + h3 {
+  text-align: center;
 }

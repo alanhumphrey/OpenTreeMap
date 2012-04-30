@@ -6,7 +6,8 @@ from datetime import datetime
 from dbfpy import dbf
 from optparse import make_option
 from django.core.management.base import BaseCommand, CommandError
-from UrbanForestMap.treemap.models import Resource
+#from UrbanForestMap.treemap.models import Resource
+from canopy_connections.treemap.models import Resource
 
 class Command(BaseCommand):
     args = '<input_file_name, column_name>'
@@ -63,7 +64,7 @@ class Command(BaseCommand):
             rows = self.get_csv_rows(in_file)
         if self.file_name.endswith('.dbf'):
             rows = self.get_dbf_rows(in_file)
-        
+
         print 'Importing %d species' % len(rows)
         for i, row in enumerate(rows):
             self.handle_row(row)

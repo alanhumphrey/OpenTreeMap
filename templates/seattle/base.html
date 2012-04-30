@@ -6,7 +6,6 @@
 
         <script type="text/javascript">
 	  var tm_static = "{{ SITE_ROOT }}";
-
           var tm_urls = {
               geo_url: '{{ GEOSERVER_URL }}',
               tc_url : '{{ TILECACHE_URL }}',
@@ -19,18 +18,6 @@
         {% block tophead %}
         {% endblock %}
 
-  <!--      <script type="text/javascript" src="{{ STATIC_URL }}all_misc.js"></script>
-        <script type="text/javascript" src="{{ STATIC_URL }}jquery/jquery.jeditable.min.js"></script>
-        <script type="text/javascript" src="{{ STATIC_URL }}jquery/jquery.query-2.1.7.js"></script>
-        <script type="text/javascript" src="{{ STATIC_URL }}treemap.js"></script>
-        <link rel="stylesheet" href="{{ STATIC_URL }}css/treemap.css" type="text/css"/>
-        <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}css/ufmp1.1.css" media="all" />
-        <link rel="stylesheet" href="{{ STATIC_URL }}jquery/ui/css/ui-lightness/jquery-ui-1.8rc3.custom.css" type="text/css"/>
-        <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}jquery/jquery.autocomplete.css" />
-        <link rel="shortcut icon" href="{{ STATIC_URL }}images/favicon.ico" />
-        <!--<link type="text/css" href="http://jqueryui.com/latest/themes/base/jquery.ui.all.css" rel="stylesheet" />-->
-        
-<!--      <script type="text/javascript" src="{{ STATIC_URL }}all_misc.js"></script>-->
     <script src="http://www.google.com/jsapi?key=ABQIAAAAAvmhbKBo_tkJTDMmYNqoUxSTG3jLdssCAhrLeFgMLAd1GPj2dRTDj1VVz1VRMgSj8VJgvyLP_DDwkQ"
         type="text/javascript"></script>
     <script type="text/javascript"> 
@@ -55,7 +42,8 @@
 
         {% block js_ready %}
         <script type="text/javascript">
-            jQuery().ready(tm.baseTemplatePageLoad);
+	  tm.show_all_search = '{{ SHOW_ALL_SEARCH }}' === 'True';
+          jQuery().ready(tm.baseTemplatePageLoad);
         </script>
         {% endblock %}
 
@@ -85,46 +73,38 @@
 <!-- start: search box -->
         
         <section >
-          <div class='row'>
-          <p>
+          <p class='row'>
             <span class='span5 search_label'>Search for species</span>
             <span class='span7 search_label'>Location</span>
           </p>
-          
+	  <div class='row'>
           <form method="get" action="{% url treemap.views.result_map %}" name="address" class="form-horizontal  address" id="search_form">
-<span class='span4'>
-        <!--    <label id="searchSpeciesBox" for="species_search_input" class="btn">List</label>
-            <input type="text"  id="species_search_input" value="All trees"
-                   onFocus='if (this.value == "All trees") { this.value=""; };' />
--->
+	    <span class="span4">
 	    <select id="species_search_combo"></select>
-</span>
-            <input type='hidden' name='species_search_id' id="species_search_id" />
-            <input type='hidden' name='species_search_id' id="species_search_id_cultivar" />
+	    </span>
+
             <span class="search_joiner span1"> near </span>
-<span class='span4'>
-            <label id="searchLocationBox" for="location_search_input" class="btn">List</label>
-            <input type="text" name="location" onFocus="this.value=''" id="location_search_input" value="Seattle, WA" />
-</span>
+	    <span class="span4">
+	      <select id="neighborhood_search_combo"></select>
+	    </span>
 	      
-            <span class='span3' id="searchButton"><button class='btn btn-primary pull-right' type='submit' id="location_go">Search Bootstrap</button></span>
+            <span class='span3' id="searchButton"><button class='btn btn-primary pull-right' type='submit' id="location_go">Search Seattle</button></span>
           </form>
-          
-          <p class="search_suggest">
+          </div>
+          <p class="row search_suggest">
             <span id="searchSpeciesSuggest" class='span5'>Examples: 
-                    
               <a onclick='$("#species_search_input").val("Monterey Pine"); $("#species_search_id").val("28186"); $("#species_search_id").change();  return false' href="#">Monterey Pine</a> 
               or <a onclick='$("#species_search_input").val("Cupressus macrocarpa"); $("#species_search_id").val("10672"); $("#species_search_id").change(); return false' href="#">Cupressus macrocarpa</a>
                     
             </span>
                     
             <span id="searchLocationSuggest" class='span4'>Examples: 
-                    
-              <a onclick='$("#location_search_input").val("210 Columbus Ave."); $("#location_search_input").change(); return false;' href="#">210 Columbus Ave</a>, 
-              <a onclick='$("#location_search_input").val("North Beach"); $("#location_search_input").change(); return false;' href="#">North Beach</a>,
-              <a onclick='$("#location_search_input").val("94133"); $("#location_search_input").change(); return false;' href="#">94133</a>
+              <a onclick='$("#location_search_input").val("8050 35th Ave NE"); $("#location_search_input").change(); return false;' href="#">8050 35th Ave NE</a>, 
+              <a onclick='$("#location_search_input").val("Wedgwood"); $("#location_search_input").change(); return false;' href="#">Wedgwood</a>,
+              <a onclick='$("#location_search_input").val("98115"); $("#location_search_input").change(); return false;' href="#">98115</a>
             </span>
-            <span class='pull-right' id="searchFilter"><a href="#" id="advanced"  data-toggle="collapse" data-target="#advanced_search"><em><span id="close-filters">Show advanced filters</span></em> <i class='icon-chevron-right'></i></a> </span>
+
+            <span class='pull-right' id="searchFilter"><a href="#" id="advanced_filters"  data-toggle="collapse" data-target="#advanced_search"><em>Show advanced filters</em> <i class='icon-chevron-right'></i></a> </span>
           </p>
 
            <div id="searchSpeciesList" class="ac_results" style="">
@@ -132,45 +112,43 @@
 	   </div>
 	   <div id="searchNBList" class="ac_results" style=""><h2>Neighborhoods</h2>
 	   </div>
-	  </div>
 	</section>
 
         <section class="filter_box" id="advanced_search" > 
-	  <div class='row'>
-            <div class="parameter span4"> 
-              <div class="title"> 
-                <strong>Diameter</strong> 
-                <em><span id="min_diam">0</span> inches - <span id="max_diam">50</span> inches</em> 
-              </div> 
-              <div id="diameter_slider"></div>
+	  <div class="row">
+            <div class="span4">
+	      <div class="slider_wrapper">
+		<div class="title">
+                  <strong>Diameter</strong> 
+                  <span id="diameter">0 inches - 50 inches</span>
+		</div>
+		<div id="diameter_slider"></div>
 
               <div class="title"> 
                 <strong>Height</strong> 
-                <em><span id="min_height">0</span> feet - <span id="max_height">200</span> feet</em> 
+                <span id="height">0 feet - 200 feet</span>
               </div> 
               <div id="height_slider"></div>
 
               <div class="title"> 
                 <strong>Plant Date</strong> 
-                <em><span id="min_planted">1700</span> - 
-                  <span id="max_planted">2010</span></em> 
+                <span id="planted">1970 - 2012</span>
               </div> 
               <div id="planted_slider"></div>
 
               <div class="title"> 
                 <strong>Last Tree Update</strong> 
-                <em><span id="min_updated">0</span> - 
-                  <span id="max_updated">365</span></em> 
+                <span id="updated">0 - 365</span>
               </div> 
               <div id="updated_slider"></div>
 
               <div class="title"> 
                 <strong>Plot Size</strong> 
-                <em><span id="min_plot">0</span> feet - <span id="max_plot">15+</span> feet</em> 
+                <span id="plot_size">0 feet - 15+ feet</span> 
               </div> 
               <div id="plot_slider"></div>
+              </div>
             </div>
-
             <form id="options_form" action="#" class="options"> 
               <div class="characteristics span2"> 
 		<fieldset>
@@ -377,7 +355,8 @@
               </div> 
             </form> 
 	  </div>
-          <div class="row steward">
+          <div class="row">
+	    <div class="steward">
 	    <span class="span3">
               <label for="steward">Tree Steward</label><input id="steward" />
 	    </span>
@@ -390,6 +369,7 @@
 	    <span class="span3">
               <label for="funding">Sponsor</label><input id="funding" />
 	    </span>
+	  </div>
 	  </div>
 	</section>		
           
@@ -412,16 +392,13 @@
           <h2>How you can help</h2> 
 	  <div class='row'>
             <div class="span4"> 
-              <span class="number">1</span> 
-              <p><span class="mark"><a href="{% url treemap.views.result_map %}">Find a tree</a></span>: Search for the trees near you. Find trees that bear edible fruits and nuts or those with beautiful flowers. Search for the biggest trees in your neighborhood -- then go visit them! <a href="{% url treemap.views.result_map %}#?advanced=open" class="more">Go  &raquo;</a></p> 
+              <p><span class="dropcap">1</span><span class="mark"><a href="{% url treemap.views.result_map %}">Find a tree</a></span>: Search for the trees near you. Find trees that bear edible fruits and nuts or those with beautiful flowers. Search for the biggest trees in your neighborhood -- then go visit them! <a href="{% url treemap.views.result_map %}#?advanced=open" class="more">Go  &raquo;</a></p> 
             </div> 
             <div class="span4"> 
-              <span class="number">2</span> 
-              <p><span class="mark"><a href="{% url treemap.views.tree_add %}/">Add a tree</a></span>: The Urban Forest Map grows as citizen foresters like you add trees. Show a tree's location by putting a dot on the map, then  provide as much information as you can. <a href="{% url treemap.views.tree_add %}/" class="more">Go  &raquo;</a></p> 
+              <p><span class="dropcap">2</span><span class="mark"><a href="{% url treemap.views.tree_add %}/">Add a tree</a></span>: The Urban Forest Map grows as citizen foresters like you add trees. Show a tree's location by putting a dot on the map, then  provide as much information as you can. <a href="{% url treemap.views.tree_add %}/" class="more">Go  &raquo;</a></p> 
             </div> 
             <div class="span4" > 
-              <span class="number">3</span> 
-              <p><span class="mark"><a href="{% url treemap.views.result_map %}">Edit a tree</a></span>: Check out the facts about the trees around you and update when you can. Don't forget to add alerts! With your help, we'll  track changes in the urban forest and watch it grow. <a href="{% url treemap.views.result_map %}" class="more">Go  &raquo;</a></p> 
+              <p><span class="dropcap">3</span><span class="mark"><a href="{% url treemap.views.result_map %}">Edit a tree</a></span>: Check out the facts about the trees around you and update when you can. Don't forget to add alerts! With your help, we'll  track changes in the urban forest and watch it grow. <a href="{% url treemap.views.result_map %}" class="more">Go  &raquo;</a></p> 
             </div> 
           </div>
         </div> 

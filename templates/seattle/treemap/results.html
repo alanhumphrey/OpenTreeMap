@@ -15,9 +15,9 @@
 <div id="export" class='span6'>
   <p>
     <strong>Export options:</strong>
-    <a class="btn btn-small" id="kml_link">KML</a>
-    <a class="btn btn-small" id="csv_link">CSV</a>
-    <a class="btn btn-small" id="shp_link">Shapefile</a>
+    <a class="btn btn-small btn-primary" id="kml_link">KML</a>
+    <a class="btn btn-small btn-primary" id="csv_link">CSV</a>
+    <a class="btn btn-small btn-primary" id="shp_link">Shapefile</a>
   </p>
 </div>
 {% endblock heading %}
@@ -72,7 +72,7 @@
 <p>Our database of trees comes from public records and citizen foresters like you.
   Your help will make it better. <!--<a href="#">Find out how to add and edit trees near you!</a>-->
 </p> 
-<table width="100%"> 
+<table class='table table-condensed'> 
   {% for tree in latest_trees %}
   <tr> 
     <td class="image"><a href="{% url treemap_tree_detail tree.id %}">
@@ -117,10 +117,12 @@
 
 <h2>Recent photos from users</h2> 
 <!--                             <a href="#">Upload your own</a>  -->
-<ul class="photos">
+<div class="row">
+<div class="span6">
+<ul class="thumbnails">
             
   {% for pic in latest_photos %}
-  <li>
+  <li class="span2">
     <a href="{{ pic.tree.get_absolute_url }}">
       <img src="/media/{% thumbnail pic.photo 43x42 %}" alt="image description" width="43" height="42" />
     </a>
@@ -128,6 +130,8 @@
   {% endfor %}
             
 </ul> 
+</div>
+</div>
             
 <!-- Where is this info supposed to come from? -->
 <!--

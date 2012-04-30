@@ -4,7 +4,8 @@ from datetime import datetime
 from dbfpy import dbf
 from optparse import make_option
 from django.core.management.base import BaseCommand, CommandError
-from UrbanForestMap.treemap.models import Species, Resource
+#from UrbanForestMap.treemap.models import Species, Resource
+from canopy_connections.treemap.models import Species, Resource
 
 class Command(BaseCommand):
     args = '<input_file_name>'

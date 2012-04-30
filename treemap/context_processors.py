@@ -7,4 +7,6 @@ def site_root(context):
         'SITE_ROOT': settings.SITE_ROOT,
         'GEOSERVER_URL': settings.GEOSERVER_URL,
         'TILECACHE_URL': settings.TILECACHE_URL,
-        'TILECACHE_LAYER': settings.TILECACHE_LAYER }
+        'TILECACHE_LAYER': settings.TILECACHE_LAYER,
+        'COPYRIGHT': settings.COPYRIGHT,
+        'SHOW_ALL_SEARCH': settings.SHOW_ALL_SEARCH}

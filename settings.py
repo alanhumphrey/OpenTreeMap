@@ -2,7 +2,7 @@ import os
 import django
 #from settings_philadelphia import *
 #from settings_sanfrancisco import *
-from settings_bootstrap import *
+from settings_seattle import *
 #from settings_dctreekit import *
 
 #new settings

@@ -47,6 +47,7 @@
 			self._trigger( "selected", event, {
 			    item: ui.item.option
 			});
+			select.change();
 		    },
 		    change: function( event, ui ) {
 			if ( !ui.item ) {
