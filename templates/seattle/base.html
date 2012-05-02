@@ -3,17 +3,21 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>{% block title %}Canopy Connections{% endblock %}</title>
-
-        <script type="text/javascript">
-	  var tm_static = "{{ SITE_ROOT }}";
-          var tm_urls = {
-              geo_url: '{{ GEOSERVER_URL }}',
-              tc_url : '{{ TILECACHE_URL }}',
-	      tc_layer_name: '{{ TILECACHE_LAYER }}',
-              attribution: '{{ COPYRIGHT }}'
-          };
-
-        </script>
+    
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    
+    <script type="text/javascript">
+      var tm_static = "{{ SITE_ROOT }}";
+      var tm_urls = {
+      geo_url: '{{ GEOSERVER_URL }}',
+      tc_url : '{{ TILECACHE_URL }}',
+      tc_layer_name: '{{ TILECACHE_LAYER }}',
+      attribution: '{{ COPYRIGHT }}'
+      };
+    </script>
         
         {% block tophead %}
         {% endblock %}
