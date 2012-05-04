@@ -4071,7 +4071,7 @@ legend {
   background-color: #eeeeee;
   display: none;
 }
-.dropcap {
+.dropcap:first-letter {
   font-size: 600%;
   font-weight: bold;
   color: #555555;
@@ -4139,6 +4139,9 @@ legend {
 #results_map_wrap {
   padding: 10px;
 }
+.olControlAttribution {
+  bottom: .25em !important;
+}
 .map_toggle {
   position: absolute;
   right: 10px;
@@ -4147,4 +4150,26 @@ legend {
 }
 #results_aside h2 + h3 {
   text-align: center;
+}
+.required {
+  font-weight: bold;
+}
+#genError {
+  color: #b94a48;
+  background: #f2dede;
+  border: #eed3d7;
+  font-size: 20px;
+  margin-bottom: 25px;
+  margin-top: 0;
+  padding: 15px;
+}
+#smError {
+  font-size: 13px;
+}
+.help-inline,
+.note {
+  font-size: 11.049999999999999px;
+}
+.note {
+  font-weight: normal;
 }

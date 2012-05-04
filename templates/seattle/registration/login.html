@@ -1,0 +1,64 @@
+{% extends "registration/login_or_register.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Log in" %}{% endblock %}
+
+{% block form %}
+
+{% with SITE_ROOT|add:"map/" as next_page %}
+
+<form id="form1" name="form1" method="post" action="?next={{ next|default:next_page }}" class="well form-horizontal">
+
+{%endwith%}
+<fieldset>
+<div class="control-group {% if form.username.errors %}error{% endif %}" >
+    <label class="required control-label" >{% trans "Username" %}
+    </label>
+    <div class="controls">
+      <input type="text" id="username" class="required" name="username" maxlength="30" />
+      {% if form.username.errors %}
+          {% for error in form.username.errors %}
+              <span class="help-inline">{{ error }}</span>
+          {% endfor %}
+      {% else %}
+      <span class="help-inline">Enter your username</span>
+      {% endif %}
+    </div>
+</div>
+
+<div class="control-group">
+    <label class="control-label">I am a returning user
+    </label>
+    <div class="controls">
+    <input type="radio" id="account_status" onclick="check(this.value)" checked="checked" value="login" class="radio" />
+        <span class="help-inline"></span>    
+    </div>
+</div>
+
+<div class="control-group">
+    <label class="control-label">I need an account
+    </label>
+    <div class="controls">
+    <input type="radio" id="account_status" onclick="check(this.value)" value="register" class="radio" />
+        <span class="help-inline"></span>    
+    </div>
+</div>
+
+<div class="control-group {% if form.password.errors %}error{% endif %}">
+    <label class="required control-label" >{% trans "Password" %}
+    </label>
+    <div class="controls">
+    {{ form.password }}
+        <span class="help-inline"><a {% if form.password.errors %}class="help-inline"{% endif %} href="{{ SITE_ROOT }}accounts/password/reset/">Forgot your password?</a></span>
+    </div>
+</div>
+</fieldset>
+
+<div class="controls">
+  <button type="submit" class="btn btn-primary">Log me in!</button>
+</div>	
+
+</form>
+
+
+{% endblock %}

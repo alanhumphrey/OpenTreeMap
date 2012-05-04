@@ -89,7 +89,7 @@ legend {
     display:none;
 }
 
-.dropcap {
+.dropcap:first-letter {
     font-size: 600%;
     font-weight:bold;
     color: @gray;
@@ -155,6 +155,10 @@ legend {
     padding: 10px;
 }
 
+// copyright attribute at bottom of map
+.olControlAttribution {
+    bottom: .25em !important;
+}
 .map_toggle {
     position: absolute;
     right: 10px;
@@ -164,4 +168,31 @@ legend {
 
 #results_aside h2 + h3 {
    text-align:center;
+}
+
+// forms styling
+.required {
+   font-weight:bold;
+}
+
+#genError {
+   color: @errorText;
+   background: @errorBackground;
+   border: @errorBorder;
+   font-size: 20px;
+   margin-bottom: 25px;
+   margin-top: 0;
+   padding: 15px;
+}
+
+#smError {
+   font-size: @baseFontSize;
+}
+
+.help-inline, .note {
+    font-size: @baseFontSize * .85;
+}
+
+.note {
+    font-weight:normal;
 }
