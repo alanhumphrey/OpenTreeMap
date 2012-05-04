@@ -15,8 +15,8 @@
 
 {% block extrahead %}
 <script type="text/javascript" src="{{ STATIC_URL }}js/map.js"></script>
-    <script type="text/javascript">
-    jQuery().ready(function() {
+<script type="text/javascript">
+  jQuery().ready(function() {
         tm.init_add_map();
         //jQuery("#mapHolder").hide();
         jQuery("#calloutContainer").hide();
@@ -56,8 +56,16 @@
         }   
         jQuery("#id_dbh_type_0").attr('checked', 'checked');
 
-        jQuery("#opt_field_toggle").click(function() {
-            jQuery("#opt_field_group").toggle();
+        jQuery("#opt_field_group").on("shown", function(){
+            $("#opt_field_toggle em").html("Hide Optional Fields");
+            $("#opt_field_toggle  i").addClass('icon-chevron-down')
+                                     .removeClass('icon-chevron-right');
+        })
+        .on("hidden", function() {
+            $("#opt_field_toggle em").html("Show Optional Fields");
+            $("#opt_field_toggle  i").removeClass('icon-chevron-down')
+                                     .addClass('icon-chevron-right');
+
         });
         jQuery("#id_dbh_type_0").attr('checked', 'checked');
         jQuery("#id_target_2").attr('checked', 'checked');
@@ -68,6 +76,7 @@
 
 
 {% block left_panel %}
+<div class="span12">
 {% if messages %}
 <div id="messages">
 {% for message in messages %}
@@ -76,108 +85,160 @@
 {% endfor %}
 </div>
 {% endif %}
-<div id="register" class="add">
 
-    <h1>Add a New Tree <span class="note"></span></h1>
+<h1>Add a New Tree <span class="note"></span></h1>
 
-    {% if form.errors %}
-    <div id="genError"><b>Oops!</b> There was a problem.<br />
-        {% if form.non_field_errors %}
-            <span id="smError">{{ form.non_field_errors }} </span></div>
-        {% else %}
-            <span id="smError">Error are noted in red below.</span></div>
-        {% endif %}
-    {% endif %}
+{% if form.errors %}
+<div id="genError"><b>Oops!</b> There was a problem.<br />
+  {% if form.non_field_errors %}
+  <span id="smError">{{ form.non_field_errors }} </span></div>
+{% else %}
+<span id="smError">Error are noted in red below.</span></div>
+{% endif %}
+</div>
+{% endif %}
 
-    <form id="addTree" action="." method="POST">
-    <fieldset>
-	<div id="step1">
-	<label class="required steps" {% if form.edit_address_street.errors %}id="error"{% endif %}>Step 1
-    </label>
-    {{ form.edit_address_street }}
+<form id="addTree" action="." method="POST" class="form-horizontal">
+  <fieldset>
+    <legend><h2>Step 1<h2></legend>
+    <div class="control-group {% if form.edit_address_street.errors %}error{% endif %}">
+      <div class="controls">
+	{{ form.edit_address_street }}
+	{{ form.edit_address_city }}
+	<a href="javascript:void(0)" id="update_map" class="btn btn-primary">Show on Map</a>
+      </div>
     </div>
-    <div id="step1">
-    {{ form.edit_address_city }}
-	<a href="javascript:void(0)" id="update_map" class="buttonMed">Show on Map</a>
+  </fieldset>
+
+  <fieldset>
+    <legend><h2>Step 2</h2><h3>Specify Placement</h3></legend>
+    <p>Click-and-drag the orange circle to move it to the correct location.</p>
+    <div class="row">
+      <div class="span8">
+	<div id="results_map_wrap">
+	  <div id="add_tree_map" ></div>
 	</div>
-
-
-
-	<div id="mapHolder">
-
-	    <div class="clearLeft" id="step2">
-		    <label class="required steps">Step 2</label>
-		    <span class="value">Specify Placement</span>
-		    <div class="clearLeft"></div>
-	    </div>
-
-            <div id="mapHolderDirections">Click-and-drag the orange circle to move it to the correct location.</div>
-        <div id="add_tree_map_wrap"><div id="add_tree_map" class="addMap"></div>
-		    <div id="geocode_address"></div>
-		    <div class="shadowLeft"></div>
-		    <div class="shadowTop"></div>
-	    </div>
-	    <div id="add_tree_nearby">
-		    <h1 class="title-edit">Nearby Trees</h1>
-		    <div id="nearby_trees"></div>
-	    </div>
-
-	    <div class="clearLeft" id="step3">
-            <label class="required steps">Step 3 </label>
-	        <span class="value"><a href="javascript:void(0);" id="opt_field_toggle">Enter Optional Fields</a></span>
-            <div id="opt_field_group">
-                <span class="small"><a id="treekey" href="/treekey/" target="_blank">Not sure what kind of tree it is? Find out in the Tree Key</a></span>
-                <label class="opt_fields">{{form.species_name.label}}</label>{{ form.species_name }}
-                <div class="clearLeft"></div>
-                <span class="small">Enter trunk size in inches</span>
-                <label class="opt_fields">{{form.dbh.label}}</label>{{ form.dbh }}
-                <div class="clearLeft"></div>
-                <label class="opt_fields"> </label><div id="dbh_type">{{ form.dbh_type }}</div>
-                <div class="clearLeft"></div>
-                <span class="small">Enter tree height in feet</span>
-                <label class="opt_fields">{{form.height.label}}</label>{{ form.height }}
-                <div class="clearLeft"></div>
-                <label class="opt_fields">{{form.plot_length.label}}</label>{{ form.plot_length }}{{ form.plot_length_in }}
-                <div class="clearLeft"></div>
-                <label class="opt_fields">{{form.plot_width.label}}</label>{{ form.plot_width }}{{ form.plot_width_in }}
-                <div class="clearLeft"></div>
-                <label class="opt_fields">{{form.plot_type.label}}</label>{{ form.plot_type }}
-                <div class="clearLeft"></div>
-                <label class="opt_fields" id="power_lines">Is there a powerline overhead?</label>{{ form.power_lines }}
-                <div class="clearLeft"></div>
-                <label class="opt_fields">Is there damage to the sidewalk?</label>{{ form.sidewalk_damage }}
-                <div class="clearLeft"></div>
-                <label class="opt_fields">What is the tree's condition?</label>{{ form.condition }}
-                <div class="clearLeft"></div>
-                <label class="opt_fields">{{form.status.label}}</label>{{ form.status }}
-                <div class="clearLeft"></div>
-            </div>
-            <div class="clearLeft"></div>
-			<div class="clearLeft" id="step4">
-		    <label class="required steps">Step 4</label>
-            <span class="value">After I add this tree... </span>
-		    <div class="clearLeft">
-                {{ form.target }} 
-            </div>
-            <div class="clearLeft"></div>
-            <button type="submit" class="buttonMed">Add this Tree!</button>
-	    </div>
-
+	<p id="geocode_address"></p>
+      </div>
+      <div class="span4">
+	<div id="add_tree_nearby">
+	  <h2>Nearby Trees</h2>
+	  <div id="nearby_trees"></div>
 	</div>
-
-
-	<!-- Hidden fields -->
-
-    {{ form.species_id }}
-    {{ form.lat }}
-    {{ form.lon }}
-    {{ form.edit_address_zip }}
-    {{ form.geocode_address }}
-
-
-    </fieldset>
-    </form>
+      </div>
     </div>
+  </fieldset>
+
+  <fieldset>
+    <legend><h2 id="optional_fields">Step 3</h2><h3>Optional Fields</h3></legend>
+    <a href="#optional_fields" data-toggle="collapse" data-target="#opt_field_group" id="opt_field_toggle"><em>Hide Optional Fields</em> <i class='icon-chevron-down'></i></a>
+    <div id="opt_field_group" class="collapse in">
+      
+      <div class="control-group">
+        <label class="control-label">{{form.species_name.label}}</label>
+	<div class="controls">{{ form.species_name }}
+          <span class="help-inline">Not sure what kind of tree it is? <a id="treekey" href="/treekey/" target="_blank">Find out in the Tree Key</a></span>
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">{{form.dbh.label}}</label>
+	<div class="controls">
+	  {{ form.dbh }}
+          <span class="help-inline">Enter trunk size in inches</span>          
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label"> </label>
+	<div id="dbh_type" class="controls">
+	  {{ form.dbh_type }}
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">{{form.height.label}}</label>
+	<div class="controls">
+	  {{ form.height }}
+          <span class="help-inline">Enter tree height in feet</span>
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">{{form.plot_length.label}}</label>
+	<div class="controls">
+	  {{ form.plot_length }}{{ form.plot_length_in }}
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">{{form.plot_width.label}}</label>
+	<div class="controls">
+	  {{ form.plot_width }}{{ form.plot_width_in }}
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">{{form.plot_type.label}}</label>
+	<div class="controls">
+	  {{ form.plot_type }}
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" id="power_lines">Is there a powerline overhead?</label>
+	<div class="controls">
+	  {{ form.power_lines }}
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">Is there damage to the sidewalk?</label>
+	<div class="controls">
+	  {{ form.sidewalk_damage }}
+	</div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label">What is the tree's condition?</label>
+	<div class="controls">
+	  {{ form.condition }}
+	</div>
+      </div>
+        
+      <div class="control-group">
+        <label class="control-label">{{form.status.label}}</label>
+	<div class="controls">
+	  {{ form.status }}
+	</div>
+      </div>
+      
+  </fieldset>
+
+  <fieldset>
+    <legend><h2>Step 4</h2></legend>
+    
+    <div class="control-group">
+      <label class="control-label">After I add this tree... </label>
+      <div class="controls" id="add_tree_next_action">
+        {{ form.target }} 
+      </div>
+    </div>
+  </fieldset>
+
+  <div class="controls">
+    <button type="submit" class="btn btn-primary">Add this Tree!</button>
+  </div>
+
+  <!-- Hidden fields -->
+
+  {{ form.species_id }}
+  {{ form.lat }}
+  {{ form.lon }}
+  {{ form.edit_address_zip }}
+  {{ form.geocode_address }}
+
+</form>
 
     {% endblock %}
 

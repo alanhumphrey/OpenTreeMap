@@ -106,7 +106,6 @@ var tm = {
 		var min_updated, max_updated;
 		reset_search_parameters(1970, new Date().getFullYear(), min_updated, max_updated, 0, '16');
 	    });
-
         jQuery.getJSON(tm_static + 'species/json/', function(species){
             tm.speciesData = species;
             tm.setupSpeciesList();
