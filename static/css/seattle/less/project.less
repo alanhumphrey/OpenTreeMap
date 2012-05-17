@@ -16,6 +16,9 @@
    background-color: @grayLighter;
 
 }
+#search_box {
+//  background: url("../images/v2/bg_search.gif") repeat-x scroll left top transparent;
+}
 .search_label, .search_joiner {
    font-size: 20px;
    color: @grayDark;
@@ -25,11 +28,13 @@
    margin: 5px 20px 0 0;
    text-align:center;
 }
-.search_suggest span {
+#searchFilter { 
+  text-align:right;
   margin-top: .5em;
+  margin-bottom: 1em;
 }
 .filter_box {
-   margin-top: 2em;
+   margin-top: 1em;
 }
 #searchSpeciesList, #searchNBList {
     display:none;
@@ -73,6 +78,11 @@ legend {
 }
 
 .ui-button-combo .ui-button-text { padding: 0.35em; } 
+.ui-button-combo .ui-icon { 
+  position: relative;
+  top: 3px;
+}
+
 .ui-autocomplete-input { margin: 0; padding: 4px 0 5px 0; }
 // end combo styling
 

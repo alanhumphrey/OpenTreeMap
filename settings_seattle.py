@@ -27,7 +27,7 @@ PENDING_ON = False
 REGION_NAME = 'seattle'
 
 # Your Google API Key
-GOOGLE_API_KEY = 'abcdf'
+GOOGLE_API_KEY = 'ABQIAAAAAvmhbKBo_tkJTDMmYNqoUxSTG3jLdssCAhrLeFgMLAd1GPj2dRTDj1VVz1VRMgSj8VJgvyLP_DDwkQ'
 
 # TODO - figure out how this is used in models.py/percent_complete
 COMPLETE_ARRAY = ['species','condition','sidewalk_damage','powerline_conflict_potential','dbh','plot_width','plot_length','plot_type']

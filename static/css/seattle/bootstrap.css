@@ -4009,11 +4009,13 @@ a.thumbnail:hover {
   margin: 5px 20px 0 0;
   text-align: center;
 }
-.search_suggest span {
+#searchFilter {
+  text-align: right;
   margin-top: .5em;
+  margin-bottom: 1em;
 }
 .filter_box {
-  margin-top: 2em;
+  margin-top: 1em;
 }
 #searchSpeciesList,
 #searchNBList {
@@ -4055,6 +4057,10 @@ legend {
 }
 .ui-button-combo .ui-button-text {
   padding: 0.35em;
+}
+.ui-button-combo .ui-icon {
+  position: relative;
+  top: 3px;
 }
 .ui-autocomplete-input {
   margin: 0;

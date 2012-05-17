@@ -106,11 +106,10 @@ var tm = {
 		var min_updated, max_updated;
 		reset_search_parameters(1970, new Date().getFullYear(), min_updated, max_updated, 0, '16');
 	    });
-        jQuery.getJSON(tm_static + 'species/json/', function(species){
-            tm.speciesData = species;
-            tm.setupSpeciesList();
-	    $("#species_search_combo").combobox();
-        });
+
+        tm.setupSpeciesList();
+	$("#species_search_combo").combobox();
+
         jQuery.getJSON(tm_static + 'neighborhoods/', {format:'json', list: 'list'}, function(nbhoods){
             tm.locations = nbhoods;
             tm.setupLocationList();
@@ -308,7 +307,20 @@ var tm = {
 				  }
 				 });
     },    
+    getSpeciesData: function() {
+	if ( !tm.speciesData ) {
+	    jQuery.ajax({
+		url: tm_static + 'species/json/',
+		async: false,
+		dataType: 'json',
+		success: function ( species ) {
+		    tm.speciesData = species;
+		}
+	    });
+	}
+    },
     setupSpeciesList: function() {
+	tm.getSpeciesData();
         $('#species_search_combo').append('<option value="-1">All trees</option>');
         for(var i=0; i<tm.speciesData.length;i++) {
             if (tm.speciesData[i].count == 0 && ! tm.show_all_search) {continue;}
@@ -317,7 +329,7 @@ var tm = {
 					      tm.speciesData[i].sname + ']');
 	}
     },
-    
+  
     setupLocationList: function() {
 //	$('#neighborhood_search_combo').append('<option value="-1">Seattle, WA</option>');
 	$('#neighborhood_search_combo').append('<option>Seattle, WA</option>');
@@ -1330,19 +1342,48 @@ var tm = {
                 var response =  JSON.parse(xhr.responseText);
             }});
     },
-    setupAutoComplete: function(field) {
-        field.autocomplete( {
-            source : tm.speciesData,
-            minLength: 1,
-	    focus : function(event, ui) {
+    setupAutoComplete: function( args ) {
+	var field = args.field;
+        var field_type = args.field_type;
+	var auto_complete_data;
+
+	if ( field_type === 'species' ) {
+//		auto_complete_data = [ {label: "Enter a Species Name", value: "Enter a Species Name", id: ""} ];
+		auto_complete_data = [];
+	    tm.getSpeciesData();
+	    $.each(tm.speciesData, function (index, item) {
+		var name = item.cname + " [" + item.sname + "]";
+		auto_complete_data.push( {label: name, value: name, id: item.id });
+	    });
+	} else {
+	}
+
+	field.autocomplete( {
+            source : auto_complete_data,
+/*	    focus : function(event, ui) {
 		$( field ).val(ui.item.cname);
 		return false;
 	    },
-//	    select: function(event,ui) {
-//		$("#species_search_input").val(ui.item.cname + " / " + ui.item.sname);
-//		return false;
-//	    },
-	    open : function(event, ui) {
+*/
+//	    select: args.select_action,
+	    
+	    select: function(event, ui) {
+                                 $("#id_species_id").val(ui.item.id);
+                                   return true;
+	    },
+	    change: function(event, ui) {
+		console.log('got change ' + ui.item);
+		if ( !ui.item ) {
+		    console.log('got change - in if');
+//		    $(this).val( auto_complete_data[0].label );
+//		    $(this).select( event, auto_complete_data[0] );
+		}
+            },
+/*	    select: function(event,ui) {
+		$("#id_species_id").val(ui.item.id);
+		return true;
+	    },
+/*	    open : function(event, ui) {
 		// set up striping
 		$(this).autocomplete("widget")
 		    .find(".ac_alt")
@@ -1351,15 +1392,15 @@ var tm = {
                     .find("li.ui-menu-item:even a")
                     .addClass("ac_alt")
             }
-        } ) 
-        .data( "autocomplete")._renderItem = function(ul, item) {
+*/        } ) ;
+/*        .data( "autocomplete")._renderItem = function(ul, item) {
 
 	    return $( "<li></li>" )
 		.data( "item.autocomplete", item )
 		.append( "<a>" + item.cname + " [" + item.sname + "]</a>")
 		.appendTo( ul );
 	};
-	return field;
+*/	return field;
     },
     newAction: function() {
         var select = $("<select id='actionTypeSelection' />");
@@ -1578,28 +1619,22 @@ var tm = {
     serializeSearchParams: function() {
         var q = $.query.empty(); 
 
-//        if ($("#neighborhood_search_combo").val() != tm.initial_location_string && $("#neighborhood_search_combo").val() > -1) { 
         if ($("#neighborhood_search_combo").val() != tm.initial_location_string ) { 
             q = q.set("location", $("#neighborhood_search_combo").val());
         }
-	if ( $("#species_search_combo").val() &&  $("#species_search_combo").val() > -1 ) {
-	    var tree = tm.speciesData[ $("#species_search_combo").val() ];
-//	    $("#species_search_id").val( tm.speciesData[ $("#species_search_combo").val() ] );
-//            q = q.set("species", $("#species_search_id").val());
+    	if ( $("#species_search_combo").val() &&  $("#species_search_combo").val() > -1 ) {
+            var tree = tm.speciesData[ $("#species_search_combo").val() ];
             q = q.set("species", tree.id);
-	    if ( tree.cultivar ) {
-		q = q.set("cultivar", tree.cultivar);
-	    }
+	        if ( tree.cultivar ) {
+    	   	   q = q.set("cultivar", tree.cultivar);
+	        }
         }
-/*        if ($("#species_search_id_cultivar").val()) {
-            q = q.set("cultivar", $("#species_search_id_cultivar").val());
-        }
-*/	if ( $("#advanced_search").hasClass('in') ) {
+    	if ( $("#advanced_search").hasClass('in') ) {
             q = q.set('advanced', 'open');
         }    
-	$("#options_form input:checked").each(function(idx, item){
-	    q = q.set(item.id, "true");
-	});
+	    $("#options_form input:checked").each(function(idx, item){
+	        q = q.set(item.id, "true");
+	    });
 
         for (var key in tm.searchParams) {
             if (!tm.searchParams[key]){
@@ -1610,7 +1645,7 @@ var tm = {
         }
         if (tm.searchParams['location']) {
             var val = tm.searchParams['location'];
-	    var coords = tm.geocoded_locations[val];
+	        var coords = tm.geocoded_locations[val];
             if (!coords) {return false;}
             if (coords.join) {
                 q.SET('location', coords.join(','));
@@ -1631,7 +1666,7 @@ var tm = {
     updateSearch: function( qs ) {
 	console.log('updateSearch');
         if (tm.loadingSearch) { return; }
-//        var qs = tm.serializeSearchParams();
+        var qs = tm.serializeSearchParams();
         if (qs === false) { return; }
 	console.log('qs = ' + qs);
         tm.trackPageview('/search/' + qs);

@@ -20,13 +20,17 @@
         tm.init_add_map();
         //jQuery("#mapHolder").hide();
         jQuery("#calloutContainer").hide();
-        //jQuery("#opt_field_group").hide();
-        jQuery.getJSON(tm_static + '/species/json/', function(species){
-            tm.speciesData = species;
-            tm.setupAutoComplete($('#id_species_name')).result(function(event, item) {
-                $("#id_species_id").val(item.symbol).change();
-            });
-        });
+//        tm.setupAutoComplete($('#id_species_name')).result(function(event, item) {
+//            $("#id_species_id").val(item.symbol).change();
+//        });
+
+        tm.setupAutoComplete( { field: $('#id_species_name'),
+                                field_type: 'species',
+                                select_action: function( event, ui ) {
+                                   $("#id_species_id").val(ui.item.id);
+                                   return true;
+                                } 
+                              } );
         jQuery("#addTree").submit(function(evt) {
         	tm.trackEvent("Add", "Add Tree");
         });
@@ -40,12 +44,12 @@
         		jQuery("#id_edit_address_city")[0].value = "";
         	}
         });
-        jQuery("#id_species_name").focus(function() {
+/*        jQuery("#id_species_name").focus(function() {
         	if(jQuery("#id_species_name")[0].value == "Enter a Species Name") {
         		jQuery("#id_species_name")[0].value = "";
         	}
         });
-        jQuery("#opt_field_group input").focus(function() {
+*/        jQuery("#opt_field_group input").focus(function() {
         	if(this.value == "inches" || this.value == "feet") {
         		this.value = "";
         	}
@@ -226,7 +230,7 @@
     </div>
   </fieldset>
 
-  <div class="controls">
+  <div class="form-actions">
     <button type="submit" class="btn btn-primary">Add this Tree!</button>
   </div>
 

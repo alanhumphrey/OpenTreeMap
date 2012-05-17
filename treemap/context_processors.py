@@ -9,4 +9,5 @@ def site_root(context):
         'TILECACHE_URL': settings.TILECACHE_URL,
         'TILECACHE_LAYER': settings.TILECACHE_LAYER,
         'COPYRIGHT': settings.COPYRIGHT,
+        'GOOGLE_API_KEY': settings.GOOGLE_API_KEY,
         'SHOW_ALL_SEARCH': settings.SHOW_ALL_SEARCH}
