@@ -143,3 +143,62 @@
 		}
     });
 })( jQuery );
+
+/***
+widget to turn select lists into dropdown button menus
+***/
+
+(function( $ ) {
+    $.widget( "ui.button_dropdown", {
+    	options: {
+    		appended_text: "",
+    		button_class: ""
+    	},
+		_create: function() {
+			
+	    	var self = this,
+	    	select = this.element.hide(),
+	    	selected = select.children( ":selected" ),
+	    	action_button = $("<a data-toggle='dropdown' href='#'></a>")
+	    	                .addClass("btn dropdown-toggle " + self.options.button_class),
+	    	menu = $( "<ul>" )
+	    	        .addClass( "dropdown-menu" ),
+	    	opts = select.find("option").each( function (index, item ) {
+	    		menu.append( $("<li><a>" + item.text + "</a></li>") );
+	    	});
+	    	menu.append("</ul>");
+	    	var button_group = $( "<div>")
+	    				.append( action_button, menu, "</div>" )
+	    	            .find( ".dropdown-toggle" )
+	    	            .text( menu.find("li").first().text() + " " )
+	    	            .append( "<span class='caret'></span>" )
+	    	            .end()
+	    	            .find("li a")
+	    	            .click(function () {
+	    	            	var choice = $(this).text(); 
+	    	            	var append_text = "";
+	    	            	select.find( "option" )
+	    	            		  .removeAttr('selected')
+	    	            	      .filter( function () {
+	    	            	      	return $(this).text() == choice; 
+	    	            	      } )
+	    	            	      .attr('selected', 'selected');
+							var sel = select.find("option:selected").val();
+							if (sel) append_text = self.options.appended_text;
+	    	            	select.next()
+	    	            	      .find(".dropdown-toggle")
+	    	            	      .text( choice )
+	    	            	      .append( " " + append_text + " <span class='caret'></span>" );
+	    	            } ) 
+	    	            .end()
+	    	            .addClass( "btn-group" )
+	    	            .insertAfter( select );
+	    },
+	
+		destroy: function() {
+			this.div.remove();
+	    	this.element.show();
+	    	$.Widget.prototype.destroy.call( this );
+		}
+    });
+})( jQuery );

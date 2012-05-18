@@ -107,8 +107,8 @@ var tm = {
 		reset_search_parameters(1970, new Date().getFullYear(), min_updated, max_updated, 0, '16');
 	    });
 
-        tm.setupSpeciesList();
-	$("#species_search_combo").combobox();
+        tm.setupSpeciesList( $("#species_search_combo") );
+        $("#species_search_combo").combobox();
 
         jQuery.getJSON(tm_static + 'neighborhoods/', {format:'json', list: 'list'}, function(nbhoods){
             tm.locations = nbhoods;
@@ -308,23 +308,24 @@ var tm = {
 				 });
     },    
     getSpeciesData: function() {
-	if ( !tm.speciesData ) {
-	    jQuery.ajax({
-		url: tm_static + 'species/json/',
-		async: false,
-		dataType: 'json',
-		success: function ( species ) {
-		    tm.speciesData = species;
-		}
-	    });
-	}
+    	if ( !tm.speciesData ) {
+	       jQuery.ajax({
+            url: tm_static + 'species/json/',
+            async: false,
+            dataType: 'json',
+            success: function ( species ) {
+		      tm.speciesData = species;
+            }
+	       });
+        }
     },
-    setupSpeciesList: function() {
-	tm.getSpeciesData();
-        $('#species_search_combo').append('<option value="-1">All trees</option>');
+    setupSpeciesList: function( species_field, default_text ) {
+        if ( default_text == undefined ) default_text = "All trees";
+        tm.getSpeciesData();
+        species_field.append('<option value="-1">' + default_text + '</option>');
         for(var i=0; i<tm.speciesData.length;i++) {
             if (tm.speciesData[i].count == 0 && ! tm.show_all_search) {continue;}
-	    $('#species_search_combo').append('<option value="' + i + '">' + 
+        species_field.append('<option value="' + i + '">' + 
 					      tm.speciesData[i].cname + ' [' +
 					      tm.speciesData[i].sname + ']');
 	}

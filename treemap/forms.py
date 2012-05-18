@@ -35,7 +35,7 @@ class TreeAddForm(forms.Form):
     lat = forms.FloatField(widget=forms.HiddenInput,required=True)
     lon = forms.FloatField(widget=forms.HiddenInput,required=True)
     initial_map_location = forms.CharField(max_length=200, required=False, widget=forms.HiddenInput)
-    species_name = forms.CharField(required=False, initial="Enter a Species Name")
+    species_name = forms.CharField(widget=forms.Select, required=False, initial="Enter a Species Name")
     species_id = forms.CharField(widget=forms.HiddenInput, required=False)
     dbh = forms.FloatField(required=False, label="Trunk size")
     dbh_type = forms.ChoiceField(required=False, widget=forms.RadioSelect, choices=[('diameter', 'Diameter'), ('circumference', 'Circumference')])

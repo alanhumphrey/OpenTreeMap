@@ -4161,6 +4161,10 @@ legend {
 .required {
   font-weight: bold;
 }
+.controls .btn-group {
+  display: inline-block;
+  margin-right: 5px;
+}
 #genError {
   color: #b94a48;
   background: #f2dede;
