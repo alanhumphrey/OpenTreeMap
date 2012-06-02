@@ -4126,12 +4126,19 @@ legend {
 #block_heading,
 #impact,
 #results_aside,
-#results_map_wrap {
+#results_map_wrap,
+#editOptionContainer,
+.editMap {
   background-color: #eeeeee;
 }
 #block_heading {
   padding-top: 9px;
   margin-bottom: 10px;
+}
+#results_map_wrap,
+#editOptionContainer,
+.editMap {
+  padding: 10px;
 }
 #results_aside,
 #results_map_wrap {
@@ -4141,10 +4148,19 @@ legend {
 #add_tree_map {
   width: 600px;
   height: 498px;
-  position: relative;
 }
-#results_map_wrap {
-  padding: 10px;
+#edit_tree_map,
+#tree_streetview {
+  width: 280px;
+  height: 240px;
+}
+#editOptionContainer .btn {
+  margin: 0 auto;
+  display: block;
+  width: 150px;
+}
+#tree_streetview {
+  margin-top: 20px;
 }
 .olControlAttribution {
   bottom: .25em !important;
@@ -4187,4 +4203,16 @@ legend {
 #dbh_type ul,
 #add_tree_next_action ul {
   list-style-type: none;
+}
+#tree_photos div {
+  padding: 10px;
+  background: #eeeeee;
+}
+#tree_photos h2 {
+  border-top: 1px solid #999999;
+  margin: 20px 0 10px 0;
+  padding-top: 5px;
+}
+#tree_photos h2 small {
+  color: #000000;
 }

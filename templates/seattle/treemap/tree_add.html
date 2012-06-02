@@ -20,19 +20,15 @@
         tm.init_add_map();
         //jQuery("#mapHolder").hide();
         jQuery("#calloutContainer").hide();
-//        tm.setupAutoComplete($('#id_species_name')).result(function(event, item) {
-//            $("#id_species_id").val(item.symbol).change();
-//        });
 
-        tm.setupAutoComplete( { field: $('#id_species_name'),
-                                field_type: 'species',
-                                select_action: function( event, ui ) {
-                                   $("#id_species_id").val(ui.item.id);
-                                   return true;
-                                } 
-                              } );
         jQuery("#addTree").submit(function(evt) {
         	tm.trackEvent("Add", "Add Tree");
+          if ( jQuery("#id_species_name option:selected").val() > -1 ) {
+            var tree_id = tm.speciesData[ jQuery( "#id_species_name option:selected" ).val() ].id;
+            jQuery( "#id_species_id" ).val( tree_id );
+          } else {
+            jQuery( "#id_species_id" ).val( "" ); 
+          }
         });
 
         jQuery("#id_edit_address_street").focus(function() {
@@ -49,12 +45,6 @@
 
         tm.setupSpeciesList( $("#id_species_name"), "" );
         jQuery("#id_species_name").combobox();
-
-        jQuery("#opt_field_group input").focus(function() {
-        	if(this.value == "inches" || this.value == "feet") {
-        		this.value = "";
-        	}
-        });
 
         if ('{{form.edit_address_street.value}}' != "") {
             jQuery("#update_map").click();
@@ -249,6 +239,7 @@
     {{ form.lon }}
     {{ form.edit_address_zip }}
     {{ form.geocode_address }}
+    {{ form.initial_map_location }}
   </form>
 
 {% endblock %}

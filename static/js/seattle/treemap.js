@@ -325,10 +325,10 @@ var tm = {
         species_field.append('<option value="-1">' + default_text + '</option>');
         for(var i=0; i<tm.speciesData.length;i++) {
             if (tm.speciesData[i].count == 0 && ! tm.show_all_search) {continue;}
-        species_field.append('<option value="' + i + '">' + 
+            species_field.append('<option value="' + i + '">' + 
 					      tm.speciesData[i].cname + ' [' +
 					      tm.speciesData[i].sname + ']');
-	}
+    	}
     },
   
     setupLocationList: function() {
@@ -511,6 +511,7 @@ var tm = {
                     jQuery('#id_lat').val(olPoint.lat);
                     jQuery('#id_lon').val(olPoint.lon);
                     jQuery('#id_geocode_address').val(results[0].formatted_address)
+                    jQuery('#id_initial_map_location').val(olPoint.lat + ", " + olPoint.lon);
                     
                     jQuery('#update_map').html("Update Map");
                     jQuery("#mapHolder").show();
@@ -802,7 +803,7 @@ var tm = {
                 }
                 if ($('#nearby_trees')) {
                     $('#nearby_trees').html("Loading...")
-                    var url = ['trees/location/?lat=',ll.lat,'&lon=',ll.lon,'&format=json&max_trees=10&distance=.0001'].join('');
+                    var url = ['trees/location/?lat=',ll.lat,'&lon=',ll.lon,'&format=json&max_trees=10&distance=.001'].join('');
                     $.getJSON(tm_static + url, function(geojson){
                         if (geojson.features.length == 0) {
                             $('#nearby_trees').html("No other trees nearby.")
@@ -1165,7 +1166,7 @@ var tm = {
         tm.drag_control.activate();
         //TODO:  bounce marker a bit, or change its icon or something
         tm.trackEvent('Edit', 'Location', 'Start');
-        var save_html = '<a href="javascript:tm.saveTreeLocation()" class="buttonSmall"><img src="' + tm_static + 'static/images/loading-indicator-trans.gif" width="12" /> Stop Editing and Save</a>'
+        var save_html = '<a href="javascript:tm.saveTreeLocation()" class="btn btn-info"><img src="' + tm_static + 'static/images/loading-indicator-trans.gif" width="12" /> Stop Editing and Save</a>'
 
         $('#edit_tree_location').html(save_html);
         return false;
@@ -1175,7 +1176,7 @@ var tm = {
         //tm.tree_marker.disableDragging();     
         tm.drag_control.activate();
         tm.trackEvent('Edit', 'Location', 'Save');
-        var edit_html = '<a href="#" onclick="tm.enableEditTreeLocation(); return false;"class="buttonSmall">Start editing tree location</a>'
+        var edit_html = '<a href="#" onclick="tm.enableEditTreeLocation(); return false;"class="btn btn-primary">Start editing tree location</a>'
         $('#edit_tree_location').html(edit_html);
         tm.updateEditableLocation();
         },
@@ -1208,15 +1209,21 @@ var tm = {
         };
         if (options) {
             for (var key in options) {
-                if (key == "loadurl") {
-                    editableOptions[key] =  options[key];
-                } else {
-                    editableOptions[key] = options[key];
+                if (key === "type" && options[key] === "autocomplete_species" ) {
+                        tm.getSpeciesData();
+                        var select_data = {};
+                        $.each( tm.speciesData, function ( index, item ) {
+                                select_data[ item.id ] = item.cname + ' [' + item.sname + ']';
+                            }
+                         );
+                        editableOptions['data'] = select_data;
                 }
+                editableOptions[key] = options[key];
             }
         }
 
         $('#edit_'+field).editable(tm.updateEditableServerCall, editableOptions);
+        $('#edit_'+field).find('button').addClass('btn btn-small');
     },
     updateEditableServerCall: function(value, settings) {
         var data = {
@@ -1343,66 +1350,6 @@ var tm = {
                 var response =  JSON.parse(xhr.responseText);
             }});
     },
-    setupAutoComplete: function( args ) {
-	var field = args.field;
-        var field_type = args.field_type;
-	var auto_complete_data;
-
-	if ( field_type === 'species' ) {
-//		auto_complete_data = [ {label: "Enter a Species Name", value: "Enter a Species Name", id: ""} ];
-		auto_complete_data = [];
-	    tm.getSpeciesData();
-	    $.each(tm.speciesData, function (index, item) {
-		var name = item.cname + " [" + item.sname + "]";
-		auto_complete_data.push( {label: name, value: name, id: item.id });
-	    });
-	} else {
-	}
-
-	field.autocomplete( {
-            source : auto_complete_data,
-/*	    focus : function(event, ui) {
-		$( field ).val(ui.item.cname);
-		return false;
-	    },
-*/
-//	    select: args.select_action,
-	    
-	    select: function(event, ui) {
-                                 $("#id_species_id").val(ui.item.id);
-                                   return true;
-	    },
-	    change: function(event, ui) {
-		console.log('got change ' + ui.item);
-		if ( !ui.item ) {
-		    console.log('got change - in if');
-//		    $(this).val( auto_complete_data[0].label );
-//		    $(this).select( event, auto_complete_data[0] );
-		}
-            },
-/*	    select: function(event,ui) {
-		$("#id_species_id").val(ui.item.id);
-		return true;
-	    },
-/*	    open : function(event, ui) {
-		// set up striping
-		$(this).autocomplete("widget")
-		    .find(".ac_alt")
-		    .removeClass("ac_alt")
-		    .end()
-                    .find("li.ui-menu-item:even a")
-                    .addClass("ac_alt")
-            }
-*/        } ) ;
-/*        .data( "autocomplete")._renderItem = function(ul, item) {
-
-	    return $( "<li></li>" )
-		.data( "item.autocomplete", item )
-		.append( "<a>" + item.cname + " [" + item.sname + "]</a>")
-		.appendTo( ul );
-	};
-*/	return field;
-    },
     newAction: function() {
         var select = $("<select id='actionTypeSelection' />");
         for (var key in tm.actionTypes) {
@@ -1411,25 +1358,27 @@ var tm = {
         var tr = $("<tr />").append($(""), $("<td colspan='2' />").append(select));
         tr.append(
             $("<td />").append(
-                $("<input type='submit' value='Submit' class='button' />").click(tm.handleNewAction),
-                $("<input type='submit' value='Cancel' class='button' />").click(tm.cancelNew)
+                $("<input type='submit' value='Submit' class='btn btn-mini' />").click(tm.handleNewAction),
+                $("<input type='submit' value='Cancel' class='btn btn-mini' />").click(tm.cancelNew)
             )
         );
         $("#actionTable").append(tr);
+        $("#actionTypeSelection").button_dropdown();
     },
     newLocal: function() {
-            var select = $("<select id='localTypeSelection' />");
-            for (var key in tm.localTypes) {
-                select.append($("<option value='"+key+"'>"+tm.localTypes[key]+"</option>"));
-            }    
-            var tr = $("<tr />").append($(""), $("<td colspan='2' />").append(select));
-            tr.append(
-                $("<td />").append(
-                    $("<input type='submit' value='Submit' class='button' />").click(tm.handleNewLocal),
-                    $("<input type='submit' value='Cancel' class='button' />").click(tm.cancelNew)
-                )
-            );
-            $("#localTable").append(tr);
+        var select = $("<select id='localTypeSelection' />");
+        for (var key in tm.localTypes) {
+            select.append($("<option value='"+key+"'>"+tm.localTypes[key]+"</option>"));
+        }    
+        var tr = $("<tr />").append($(""), $("<td colspan='2' />").append(select));
+        tr.append(
+            $("<td />").append(
+                $("<input type='submit' value='Submit' class='btn btn-mini' />").click(tm.handleNewLocal),
+                $("<input type='submit' value='Cancel' class='btn btn-mini' />").click(tm.cancelNew)
+            )
+        );
+        $("#localTable").append(tr);
+        $("#localTypeSelection").button_dropdown();
     },
     newHazard: function() {
         var select = $("<select id='hazardTypeSelection' />");
@@ -1439,11 +1388,12 @@ var tm = {
         var tr = $("<tr />").append($(""), $("<td colspan='2' />").append(select));
         tr.append(
             $("<td style='white-space:nowrap;' />").append(
-                $("<input type='submit' value='Submit' class='button' />").click(tm.handleNewHazard),
-                $("<input type='submit' value='Cancel' class='button' />").click(tm.cancelNew)
+                $("<input type='submit' value='Submit' class='btn btn-mini' />").click(tm.handleNewHazard),
+                $("<input type='submit' value='Cancel' class='btn btn-mini' />").click(tm.cancelNew)
             )
         );
         $("#hazardTable").append(tr);
+        $("#hazardTypeSelection").button_dropdown();
     },
     cancelNew: function(evt) {
         $(this.parentNode.parentNode).remove();
@@ -2151,148 +2101,3 @@ var tm = {
       return ! isNaN (o-0);
     }
 };  
-$.editable.addInputType("autocomplete_species", {
-    element: function(settings, original) {
-        var hiddenInput = $('<input type="hidden" class="hide">');
-        var input = $("<input type='text' />");
-        tm.setupAutoComplete(input).result(function(event, item) {
-            hiddenInput[0].value = item.id; 
-        });
-        $(this).append(input);
-        $(this).append(hiddenInput);
-        return (hiddenInput);
-    }
-});
-$.editable.addInputType('date', {
-    element : function(settings, original) {       
-        var monthselect = $('<select id="month_">');
-        var dayselect  = $('<select id="day_">');
-        var yearselect  = $('<select id="year_">');
-    
-        /* Month loop */
-        for (var month=1; month <= 12; month++) {
-            if (month < 10) {
-                month = '0' + month;
-            }
-            var option = $('<option>').val(month).append(month);
-            monthselect.append(option);
-        }
-        $(this).append(monthselect);
-
-        /* Day loop */
-        for (var day=1; day <= 31; day++) {
-            if (day < 10) {
-                day = '0' + day;
-            }
-            var option = $('<option>').val(day).append(day);
-            dayselect.append(option);
-        }
-        $(this).append(dayselect);
-            
-        /* Year loop */
-        thisyear = new Date().getFullYear()
-        for (var year=thisyear; year >= 1800; year--) {
-            var option = $('<option>').val(year).append(year);
-            yearselect.append(option);
-        }
-        $(this).append(yearselect);
-        
-        $(this).append("<br><span>MM</span><span style='padding-left:30px;'>DD</span><span style='padding-left:36px;'>YYYY</span><br><div style='color:red;' id='dateplanted_error'/>")
-        
-        /* Hidden input to store value which is submitted to server. */
-        var hidden = $('<input type="hidden">');
-        $(this).append(hidden);
-        return(hidden);
-    },
-    submit: function (settings, original) {
-        var vdate = new Date($("#year_").val(), $("#month_").val()-1, $('#day_').val());
-        if (vdate.getTime() > new Date().getTime()) {
-            $("#dateplanted_error").html("Enter a past date")
-            return false;
-        }
-        
-        var value = $("#year_").val() + "-" + $("#month_").val() + "-" + $('#day_').val();
-        $("input", this).val(value);
-    },
-    content : function(string, settings, original) {
-        var pieces = string.split('-');
-        var year = pieces[0];
-        var month  = pieces[1];
-        var day  = pieces[2];
-        
-
-        $("#year_", this).children().each(function() {
-            if (year == $(this).val()) {
-                $(this).attr('selected', 'selected');
-            }
-        });
-        $("#month_", this).children().each(function() {
-            if (month == $(this).val()) {
-                $(this).attr('selected', 'selected');
-            }
-        });
-        $("#day_", this).children().each(function() {
-            if (day == $(this).val()) {
-                $(this).attr('selected', 'selected');
-            }
-        });
-    }
-});
-$.editable.addInputType('feetinches', {
-    element : function(settings, original) {       
-        var footselect = $('<select id="feet_">');
-        var inchselect  = $('<select id="inches_">');
-    
-        /* Month loop */
-        for (var foot=1; foot <= 15; foot++) {
-            var option = $('<option>').val(foot).append(foot);
-            footselect.append(option);
-        }
-        var option = $('<option>').val(99).append('15+');
-        footselect.append(option);
-        $(this).append(footselect);
-
-        /* Day loop */
-        for (var inch=0; inch <= 11; inch++) {
-            var option = $('<option>').val(inch).append(inch);
-            inchselect.append(option);
-        }
-        $(this).append(inchselect);
-            
-        
-        $(this).append("<br><span>Feet</span><span style='padding-left:30px;'>Inches</span><br><div style='color:red;' id='dateplanted_error'/>")
-        
-        /* Hidden input to store value which is submitted to server. */
-        var hidden = $('<input type="hidden">');
-        $(this).append(hidden);
-        return(hidden);
-    },
-    submit: function (settings, original) {
-        var vfeet = parseFloat($("#feet_").val());
-        var vinch = parseFloat($("#inches_").val());
-        var value = vfeet + (vinch / 12)
-        if (vfeet == 99) {
-            $("input", this).val(vfeet);
-        }
-        else {
-            $("input", this).val(Math.round(value*100)/100);
-        }
-    },
-    content : function(string, settings, original) {
-        var pieces = parseFloat(string);
-        var ft = Math.floor(pieces);
-        var inch = Math.round((pieces - ft) * 12);
-        
-
-        $("#feet_", this).children().each(function() {
-            if (ft == $(this).val()) {
-                $(this).attr('selected', 'selected');
-            }
-        });
-        $("#inches_", this).children().each(function() {
-            if (inch == $(this).val()) {
-                $(this).attr('selected', 'selected');
-            }
-        });
-    }
-});

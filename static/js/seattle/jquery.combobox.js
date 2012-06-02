@@ -157,20 +157,27 @@ widget to turn select lists into dropdown button menus
 		_create: function() {
 			
 	    	var self = this,
+	    	toggle_text = "",
 	    	select = this.element.hide(),
 	    	selected = select.children( ":selected" ),
 	    	action_button = $("<a data-toggle='dropdown' href='#'></a>")
 	    	                .addClass("btn dropdown-toggle " + self.options.button_class),
-	    	menu = $( "<ul>" )
-	    	        .addClass( "dropdown-menu" ),
-	    	opts = select.find("option").each( function (index, item ) {
-	    		menu.append( $("<li><a>" + item.text + "</a></li>") );
-	    	});
+	    	menu = $( "<ul>" ).addClass( "dropdown-menu" ),
+	    	opts = select.find("option")
+	    				 .each( function (index, item ) {
+	    					menu.append( $("<li><a>" + item.text + "</a></li>") );
+	    				 });
 	    	menu.append("</ul>");
+	    	if ( selected ) {
+	    		toggle_text = selected.text();
+	    	} else {
+	    		toggle_text = menu.find("li").first().text();
+	    	}
+	    	toggle_text += " " + self.options.appended_text + " ";
 	    	var button_group = $( "<div>")
 	    				.append( action_button, menu, "</div>" )
 	    	            .find( ".dropdown-toggle" )
-	    	            .text( menu.find("li").first().text() + " " )
+	    	            .text( toggle_text )
 	    	            .append( "<span class='caret'></span>" )
 	    	            .end()
 	    	            .find("li a")

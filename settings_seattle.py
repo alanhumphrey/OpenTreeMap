@@ -1,10 +1,10 @@
 import os
-#import logging
+import logging
 
-#logging.basicConfig(
-#    level = logging.DEBUG,
-#    format = '%(asctime)s %(levelname)s %(message)s',
-#)
+logging.basicConfig(
+    level = logging.DEBUG,
+    format = '%(asctime)s %(levelname)s %(message)s',
+)
 
 GEOSERVER_URL = 'http://sasdev.dnsalias.org:8080/geoserver/wms?transparent=true'
 TILECACHE_URL = 'http://tilecache.sasdev.dnsalias.org/tilecache.cgi?'
@@ -16,6 +16,8 @@ TILECACHE_LAYER = 'cc:neighborhood'
 #TC_URL = 'http://tilecache.urbanforestmap.org/tiles/1.0.0/trees/'
 TC_URL = 'http://tilecache.sasdev.dnsalias.org/tiles/1.0.0/trees/'
 COPYRIGHT = '(c) Canopy Connections'
+# Use a date format that the Javascript Date object can handle.
+DATE_FORMAT = 'M j, Y'
 
 # directory name for this installation - used to build url to static data (css, js, images) 
 SITE_LOCATION = 'seattle'

@@ -57,7 +57,7 @@
       <h1 class="logo"><a href="{{ SITE_ROOT }}">Canopy Connections</a></h1>
 	    <p class="pull-right">
         {% if user.is_authenticated %}
-          Hello, <b><a href="{% url profiles.views.profile_detail user.username %}/">{{user.username|escape}}!</a></b> <span id="logout">|  <a href="{{ SITE_ROOT }}accounts/logout/?next={{ SITE_ROOT }}" id="logout">Logout</a> <a href="{% url treemap.views.tree_add %}" class="btn">Add a tree</a></span> <br/>{{user.reputation.reputation}} rep 
+          Hello, <b><a href="{% url profiles.views.profile_detail user.username %}/">{{user.username|escape}}!</a></b> <span id="logout">|  <a href="{{ SITE_ROOT }}accounts/logout/?next={{ SITE_ROOT }}" id="logout">Logout</a> <a href="{% url treemap.views.tree_add %}" class="btn btn-primary">Add a tree</a></span> <br/><span class='badge'>{{user.reputation.reputation}}</span> rep 
         {% else %}
           <a href="{{ SITE_ROOT }}accounts/login/">Login</a> or <a href="{{ SITE_ROOT }}accounts/register/">Sign up</a> <a href="{% url treemap.views.tree_add %}" class="btn btn-primary">Add a tree</a>
         {% endif %}
