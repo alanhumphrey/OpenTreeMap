@@ -40,6 +40,9 @@ try:
 except ImportError:
     from StringIO import StringIO
 
+import logging
+logger = logging.getLogger(__name__)
+
 def redirect(rel):
     # Trim off slash
     if rel[0] == "/":
@@ -192,12 +195,12 @@ def tree_location_search(request):
         raise Http404
     distance = request.GET.get('distance', settings.MAP_CLICK_RADIUS)
     max_trees = request.GET.get('max_trees', 1)
+
     if max_trees > 500: max_trees = 500
-    
     trees = Tree.objects.filter(present=True)
         #don't filter by geocode accuracy until we know why some new trees are getting -1
         #Q(geocoded_accuracy__gte=8)|Q(geocoded_accuracy=None)|Q(geocoded_accuracy__isnull=True)).filter(
-
+     
     if geom.geom_type == 'Point':
         trees = trees.filter(geometry__dwithin=(
             geom, float(distance))
@@ -205,6 +208,7 @@ def tree_location_search(request):
     #else bbox
     else:
       trees = trees.filter(geometry__intersects=geom)
+
     # needed to be able to prioritize overlapping trees
     species = request.GET.get('species')
     if species:

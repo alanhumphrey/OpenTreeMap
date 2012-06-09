@@ -133,6 +133,11 @@
 		    	input.autocomplete( "search", "" );
 		    	input.focus();
 			});
+			select.change( function ( event, ui ) {
+				// update the input box when the underlying select is changed.
+				// needed when setting the value of the combo box programmatically
+				$(this).next().val( event.currentTarget.value );
+			});
 		},
 	
 		destroy: function() {

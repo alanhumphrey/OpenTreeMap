@@ -70,6 +70,7 @@ tm.init_base_map = function(div_id, controls){
             attribution: tm_urls.attribution
         }
     );
+
     tm.tms.buffer = 0;
     tm.baseLayer.buffer = 0;
     tm.aerial.buffer = 0;

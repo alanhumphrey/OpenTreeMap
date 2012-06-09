@@ -4,6 +4,9 @@
 {%block body_load%}id='results'{%endblock %}
 {%block body_class%}inner{%endblock %}
 
+{% block extra_onready %}
+  tm.resultsTemplatePageLoad({{min_year}}, {{current_year}}, {{min_updated}}, {{max_updated}}, 0, '15+') ;
+{% endblock %}
 
 {% block heading %}
 <div id="totals" class='span6'>
@@ -147,9 +150,9 @@
 {% endblock bottom_right_panel %}
 {% block endpage %}
 <script type="text/javascript">
-  //jQuery().ready(function() {
+  /*jQuery().ready(function() {
   tm.resultsTemplatePageLoad({{min_year}}, {{current_year}}, {{min_updated}}, {{max_updated}}, 0, '15+');
-  //});
+  });*/
 </script>
 {% endblock endpage %}
 
