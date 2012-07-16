@@ -113,7 +113,7 @@ var tm = {
         jQuery.getJSON(tm_static + 'neighborhoods/', {format:'json', list: 'list'}, function(nbhoods){
             tm.locations = nbhoods;
             tm.setupLocationList();
-	    $("#neighborhood_search_combo").combobox();
+            $("#neighborhood_search_combo").combobox();
         });
 
         $(".filter_box input[type=checkbox]").change(function(evt) { 
@@ -184,14 +184,7 @@ var tm = {
             window.location.href = tm_static + "map#/" + decodeURIComponent( tm.serializeSearchParams() );
             return false;
         });
-        
 
-        $.address.init(function( event ) {
-	    console.log('init ' + event.value );
-	   }).change(function( event ) {
-	    console.log('got change ' + event.queryString );
-	   });
-            
         tm.add_favorite_handlers('/trees/favorites/create/', '/trees/favorites/delete/');
     },    
     resultsTemplatePageLoad: function(min_year, current_year, min_updated, max_updated, min_plot, max_plot) {   
@@ -201,6 +194,7 @@ var tm = {
        tm.initializeSliders(min_year, current_year, min_updated, max_updated, min_plot, max_plot);
        //$.address.externalChange( tm.initializeSearchUI() );
         tm.initializeSearchUI();
+        tm.doSearch();
 
         $("#species_search_combo").change(function(evt) {
             if (this.value === "-1") {
@@ -215,7 +209,6 @@ var tm = {
             return false;
         });
 
-        tm.doSearch();
     	console.log('end resultsTemplatePageLoad'); 
     },
     doSearch: function () {
@@ -326,24 +319,19 @@ var tm = {
         if ( default_text == undefined ) default_text = "All trees";
         tm.getSpeciesData();
         species_field.append('<option value="-1">' + default_text + '</option>');
-        for(var i=0; i<tm.speciesData.length;i++) {
-            if (tm.speciesData[i].count == 0 && ! tm.show_all_search) {continue;}
-            species_field.append('<option value="' + i + '">' + 
-					      tm.speciesData[i].cname + ' [' +
-					      tm.speciesData[i].sname + ']');
-    	}
+        $.each( tm.speciesData , function ( index, item ) {
+            if ( item.count === 0 && ! tm.show_all_search ) { return true; }
+            species_field.append( '<option value="' + index + '">' + 
+                                    item.cname + ' [' +
+                                    item.sname + ']' );
+        });
     },
-  
     setupLocationList: function() {
-//	$('#neighborhood_search_combo').append('<option value="-1">Seattle, WA</option>');
-	$('#neighborhood_search_combo').append('<option>Seattle, WA</option>');
-	$.each(tm.locations.features, function (index, value) {
-/*	    $('#neighborhood_search_combo').append('<option value="' + index + '">' +
-						   value.properties.name);
-*/          $('#neighborhood_search_combo').append('<option>' + value.properties.name + '</option>');
-	});
+    	$('#neighborhood_search_combo').append('<option>Seattle, WA</option>');
+    	$.each(tm.locations.features, function (index, value) {
+            $('#neighborhood_search_combo').append('<option>' + value.properties.name + '</option>');
+    	});
     },
-
     dateString: function(dateObj) {
         var d = (dateObj.getYear()+1900) + "-" +
             ((""+(dateObj.getMonth() + 1)).length > 1 ?  (dateObj.getMonth()+1) : "0"+(dateObj.getMonth()+1)) + "-" + 
@@ -756,7 +744,6 @@ var tm = {
             tm.map.removePopup(tm.smallPopup);
         });
     },
-    
 
     geocode : function(address, display_local_summary, callback){
         if (!address){
@@ -783,11 +770,8 @@ var tm = {
             } else {
                 alert("Geocode was not successful for the following reason: " + status);
             }
-
-        });
-                 
+        });              
     },
-        
         
     //pass in a GLatLng and get back closest address
     reverse_geocode : function(ll){
@@ -850,9 +834,7 @@ var tm = {
                         }
                     }
                     
-                });
-                
-
+                });       
             } else {
                 if ($("#geocode_address")) {
                     $("#geocode_address").html("<b>Address Found: </b><br>" + results[0].formatted_address);
@@ -1120,7 +1102,7 @@ var tm = {
             tm.display_summaries(results.summaries);
             
             if (results.initial_tree_count != results.full_tree_count && results.initial_tree_count != 0) {
-                if (results.trees.length > 0) {
+                if ( "trees" in results && results.trees.length > 0) {
                     var cql = tm.cqlizeIds(results.trees);
                     delete tm.tree_layer.params.CQL_FILTER;
                     tm.tree_layer.mergeNewParams({'FEATUREID':cql});
@@ -1549,11 +1531,12 @@ var tm = {
                     $("#plot_slider").slider('values', 1, plvals[1]);
                 }   
                 if (key == "species") {
-                    var cultivar = null;
-                    //if ($.address.parameter("cultivar")) {
-                    //    cultivar = $.address.parameter("cultivar");
-                    //}    
-                    tm.updateSpeciesFields('species_search', val, cultivar);
+                    $.each(tm.speciesData, function ( iter, item ) {
+                        if ( item.id.toString() === val ) {
+                            $("#species_search_combo").val( iter ).change();
+                            return false;
+                        }
+                    });
                 } 
                 if (key == "location") {
                     $("#neighborhood_search_combo").val( decodeURIComponent(val) ).change();
@@ -1570,13 +1553,12 @@ var tm = {
         var q = {};
         if ($("#neighborhood_search_combo").val() != tm.initial_location_string ) { 
             q.location = $("#neighborhood_search_combo").val();
-                    console.log('serializeSearchParams: location1 ' + q.location);
-
         }
         
     	if ( $("#species_search_combo").val() &&  $("#species_search_combo").val() > -1 ) {
             var tree = tm.speciesData[ $("#species_search_combo").val() ];
             q.species = tree.id;
+            delete tm.searchParams['species'];
 	        if ( tree.cultivar ) {
     	   	   q.cultivar = tree.cultivar;
 	        }

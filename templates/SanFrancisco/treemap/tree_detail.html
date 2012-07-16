@@ -2,7 +2,7 @@
 
 {% load thumbnail dynamic_attribute humanize %}
 {% load maths %}
-{% load comments %}
+{% load threadedcommentstags %}
 {% load tree_tags %}
 
 {% block extrahead %}
@@ -335,40 +335,31 @@
 									<h2>Comments</h2>
 								</div>
 								<div class="comment_list">
-								{% get_comment_list for tree as comment_list %}
-								{% for comment in comment_list %}
-									<div class="comment_item">
+                                                                {% get_threaded_comment_tree for tree as comment_tree %}
+								{% for comment in comment_tree %}
+									<div class="comment_item" style="margin-left: {{ comment.depth }}em">
 										<div class="comment_head">
 											{{ comment.user.username }} - {{ comment.submit_date|date:"P M j, Y"}}
 											{% if user.is_authenticated %}<a href="{{ SITE_ROOT }}comments/flag/{{ comment.id }}/">Flag</a>{% endif %}
 										</div>
 										<div class="comment_body">
 											{{ comment.comment }}
-										</div>
+										</div>                                             
+								                {% if user.is_authenticated %}
+                                                                                {% get_threaded_comment_form as form %}
+                                                                                <a id="c{{ comment.id }}" href="javascript:threaded.show_reply_form('{{ csrf_token }}', 'c{{ comment.id }}','{% get_comment_url tree comment %}','{{ comment.name }}')">Reply</a>
+                                                                                {% endif %}
 									</div>
 								{% empty %}
 									<div class="comment_item">No comments yet!</div>
 								{% endfor %}
 								</div>
-
+                                                                
 								{% if user.is_authenticated %}
-									{% get_comment_form for tree as form %}
-									<form action="{% comment_form_target %}" method="post">{% csrf_token %}
+									{% get_threaded_comment_form as form %}
+									<form action="{% get_comment_url tree %}" method="post">{% csrf_token %}
 										<input type="hidden" name="next" value="{{request.get_full_path}}" />
-										{% for field in form %}
-										{% if field.is_hidden %}
-										  {{ field }}
-										{% else %}
-										  {% if field.errors %}{{ field.errors }}{% endif %}
-										  <div class="comment_field {% if field.errors %} error{% endif %}"
-											{% ifequal field.name "honeypot" %} style="display:none;"{% endifequal %}
-											{% ifequal field.name "url" %} style="display:none;"{% endifequal %}
-											{% ifequal field.name "name" %} style="display:none;"{% endifequal %}
-											{% ifequal field.name "email" %} style="display:none;"{% endifequal %}>
-											{{ field.label_tag }} {{ field }}
-										  </div>
-										{% endif %}
-										{% endfor %}
+                                                                                {{ form.as_ul }}
 										<div class="submit">
 											<input type="submit" name="post" class="submit-post buttonSmall" value="Post" />
 										</div>
@@ -401,11 +392,17 @@
                 <li>
                 {% if tree.treephoto_set.count %}
                     <a href="{{ tree.treephoto_set.all|first|get:"photo"|get:"url" }}">
-                    <img src="{% thumbnail tree.treephoto_set.all|first|get:"photo" 181x119 crop upscale %}" alt="{{ tree.treephoto_set.all|first|get:"title" }}" title="{{ tree.treephoto_set.all|first|get:"title" }}" width="181" height="119" class="mainImage" />
+                        {% thumbnail tree.treephoto_set.all|first|get:"photo" "181x119" crop="center" as image %}
+                        <img src="{{ image.url }}" alt="{{ tree.treephoto_set.all|first|get:"title" }}" title="{{ tree.treephoto_set.all|first|get:"title" }}" width="181" height="119" class="mainImage" />
+                        {% endthumbnail %}
                     </a>
                     <ul id="additionalImages">
                     {% for item in tree.treephoto_set.all|slice:"1:4" %}
-                            <li><a href="{{ item.photo.url }}"><img alt="{{ item.title }}" title="{{ item.title }}" src="{% thumbnail item.photo 55x36 crop upscale %}" alt="image description" width="55" height="36" /></a></li>
+                            <li><a href="{{ item.photo.url }}">
+                            {% thumbnail item.photo "55x36" crop="center" as image %}
+                                <img alt="{{ item.title }}" title="{{ item.title }}" src="{{ image.url }}" alt="image description" width="55" height="36" />
+                            {% endthumbnail %}
+                            </a></li>
                     {% endfor %}
                     </ul>
                     <ul id="imageOptions">

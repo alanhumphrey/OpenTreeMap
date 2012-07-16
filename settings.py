@@ -1,9 +1,7 @@
 import os
 import django
-#from settings_philadelphia import *
-#from settings_sanfrancisco import *
+
 from settings_seattle import *
-#from settings_dctreekit import *
 
 #new settings
 SITE_ROOT = '/'
@@ -74,11 +72,12 @@ INSTALLED_APPS = (
     'django.contrib.gis',
     'django.contrib.humanize',
     'django.contrib.webdesign',
-    'django.contrib.comments',
     'django.contrib.markup',
     'django.contrib.flatpages',
     'django.contrib.messages',
+    'threadedcomments',
     'treemap',
+    'api',
     'registration',
     'template_utils',
     'profiles',
@@ -91,6 +90,8 @@ INSTALLED_APPS = (
     'badges',
     'pagination',
     'django_sorting',
+    'geopy_extensions',
+    'pipeline',
 )
 
 try:

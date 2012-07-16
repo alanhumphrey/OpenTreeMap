@@ -136,7 +136,7 @@
 			select.change( function ( event, ui ) {
 				// update the input box when the underlying select is changed.
 				// needed when setting the value of the combo box programmatically
-				$(this).next().val( event.currentTarget.value );
+				$(this).next().val( $(this).children().filter('[value=' + event.currentTarget.value + ']' ).text() );
 			});
 		},
 	

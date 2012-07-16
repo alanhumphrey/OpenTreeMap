@@ -5,7 +5,8 @@
 {%block body_class%}inner{%endblock %}
 
 {% block extrahead %}	    
-        <script type="text/javascript" src="{{ STATIC_URL }}js/map.js"></script>
+    {% load compressed %}
+    {% compressed_js 'map' %}
 {% endblock %}
 
 {% block body_id %}id="results"{% endblock %}
@@ -13,19 +14,6 @@
 
 
         {% block top_left_panel %}
-        {% comment %}
-          - the following summary variables are available to the template -
-            annual_air_quality_improvement
-            annual_stormwater_management
-            annual_natural_gas_conserved
-            last_updated
-            distinct_species
-            total_co2_stored
-            annual_co2_sequestered
-            annual_electricity_conserved
-            total_trees
-        {% endcomment %}
-
             <div id="results_aside" class="aside">
             <h2>Yearly Eco Impact</h2>
             <div id="summary_subset">Selected trees in <span id="summary_subset_val">..</span></div>
@@ -73,10 +61,11 @@
                             <li id="totals">
                                 <ul>
                                     <li id="title">Results:</li>
-                                    <li id="first"><span class="tree_count">0</span> trees located <span class="reset_search">(<a href="{% url treemap.views.result_map %}">reset search</a>)</span><br/><span class="notrees"></span><span class="moretrees"></span></li>
+                                    <li id="first"><span class="tree_count">0</span> trees,<br> <span class="plot_count">0</span> total planting sites located 
+                                        <br/><span class="notrees"></span><span class="moretrees"></span></li>
 
                                     <!-- <li>XX trees need more info to be included</li> -->
-                                    <li id="add"><a href="{% url treemap.views.tree_add %}" class="buttonMed"><span class="icon iconAdd"></span><span class="label">Add a Tree!</span></a></li>
+                                    <li id="add"><div class="reset_search">(<a href="{% url treemap.views.result_map %}">reset search</a>)</div><a href="{% url treemap.views.tree_add %}" class="buttonMed"><span class="icon iconAdd"></span><span class="label">Add a Tree!</span></a></li>
                                 </ul>
                             </li>
                         </ul>
@@ -116,21 +105,22 @@
                 <td class="image"><a href="{% url treemap_tree_detail tree.id %}">
 
                 {% if tree.last_updated_by.get_profile.photo %}
-                    <img src="{% thumbnail tree.last_updated_by.get_profile.photo 32x32 crop %}"
-                        alt="image description" width="33" height="32" /></td>
+                    {% thumbnail tree.last_updated_by.get_profile.photo "32x32" crop="center" as image %}
+                    <img src="{{ image.url }}" alt="image description" width="33" height="32" />
+                    {% endthumbnail %}
                 {% else %}
-                    <img src="{{ STATIC_URL }}images/v2/defaultuser.gif" alt="image description" width="33" height="32" /></td>
+                    <img src="{{ STATIC_URL }}images/v2/defaultuser.gif" alt="image description" width="33" height="32" />
                 {% endif %}
-
+                </td>
                 <td>
                     <span>Neighborhood</span>  <br />
 
-                    {{tree.neighborhood.all.0}}
+                    {{tree.plot.neighborhood.all.0}}
                 </td>
                 <td>
                     <span>Tree species</span>  <br />
 
-                    <em>{{tree.species.common_name}}</em>
+                    <em>{{tree.species.common_name|default:"Missing"}}</em>
                 </td>
                 <td>
                     <span>Updated by</span>  <br />
@@ -156,7 +146,9 @@
             {% for pic in latest_photos %}
                 <li>
                     <a href="{% url treemap.views.trees pic.tree.id %}">
-                        <img src="{% thumbnail pic.photo 43x42 %}" alt="image description" width="43" height="42" />
+                        {% thumbnail pic.photo "43x42" as image %}
+                        <img src="{{image.url}}" alt="image description" width="43" height="42" />
+                        {% endthumbnail %}
                     </a>
                 </li>
             {% endfor %}

@@ -92,15 +92,19 @@ class Command(BaseCommand):
         name = '%s' % genus
         species = ''
         cultivar = ''
+	gender = ''
         if row.get('species'):
             species = str(row['species']).strip()
             name += " %s" % species
         if row.get('cultivar'):
             cultivar = str(row['cultivar']).strip()
             name += " %s" % cultivar
+	if row.get('gender'): 
+	    gender = str(row['gender']).strip()
+	    name += " %s" % gender
 
         self.log_verbose("  Looking for species: %s" % name)
-        found = Species.objects.filter(genus__iexact=genus).filter(species__iexact=species).filter(cultivar_name__iexact=cultivar)
+        found = Species.objects.filter(genus__iexact=genus).filter(species__iexact=species).filter(cultivar_name__iexact=cultivar).filter(gender__iexact=gender)
     
         if found: #species match found
             self.log_verbose("  Found species %r" % found[0])
@@ -108,7 +112,7 @@ class Command(BaseCommand):
             
         #species data but no match, add it
         self.log_verbose("  Adding unknown species %s %s %s" % (genus, species, cultivar)) 
-        species = Species(genus=genus, species=species, cultivar_name=cultivar, scientific_name=name)
+        species = Species(genus=genus, species=species, cultivar_name=cultivar, scientific_name=name, gender=gender)
         return (True, species)
 
     

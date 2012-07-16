@@ -1,14 +1,52 @@
 import os
 
-GEOSERVER_URL = 'http://207.245.89.246:8081/geoserver/wms?transparent=true'
-TILECACHE_URL = 'http://207.245.89.246:8080/tilecache/tilecache.py/'
-TILECACHE_LAYER = 'PTM_v102'
+
+OTM_VERSION="1.1"
 
 SITE_LOCATION = 'Philadelphia'
-COMPLETE_ARRAY = ['species','condition','sidewalk_damage','powerline_conflict_potential','canopy_height','canopy_condition','dbh','plot_width','plot_length','plot_type']
+COMPLETE_ARRAY = ['species','condition','sidewalk_damage','powerline_conflict_potential','canopy_height','canopy_condition','dbh','width','length','type']
 REGION_NAME = 'Philadelphia'
 PENDING_ON = False
 MAP_CLICK_RADIUS = .0015 # in decimal degrees
+
+# pipeline minification settings
+PIPELINE = False
+PIPELINE_ROOT = os.path.dirname(__file__)
+PIPELINE_URL = '/'
+PIPELINE_YUI_BINARY = '/usr/bin/yui-compressor'
+PIPELINE_YUI_JS_ARGUMENTS = '--nomunge'
+PIPELINE_JS = {
+    'base': {
+        'source_filenames': (
+            'static/js/jquery_mods.js',
+	    'static/treemap.js',
+            'static/js/utils.js',
+            'static/js/map_init.js',
+            'static/js/geocode.js',
+            'static/js/page_init.js',
+            'static/js/management.js',
+            'static/js/comments.js',
+        ),
+        'output_filename': 'static/all_base.js',
+    },
+    'map': {
+        'source_filenames': (
+            'static/js/Philadelphia/map.js',
+            'static/js/Philadelphia/threaded.js',
+        ),
+        'output_filename': 'static/all_map.js',
+    }
+
+}
+# PIPELINE_CSS = {
+#     'all': {
+# 	'source_filenames': (
+# 	    'static/css/DCTreekit/treemap.css',
+# 	    'static/css/DCTreekit/ptm.css'
+# 	),
+#         'output_filename': 'static/all.css',
+#     }
+# }
 
 ADMINS = (
     ('Admin1', 'cbrittain@azavea.com'),
@@ -35,17 +73,6 @@ CACHE_BACKEND = 'file:///tmp/trees_cache'
 REGISTRATION_OPEN = True # defaults to True
 ACCOUNT_ACTIVATION_DAYS = 5
 
-DATABASES = {
-    'default': {
-        'NAME': 'phillytreemap',
-        'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'USER': 'phillytreemap',                      # Not used with sqlite3.
-        'PASSWORD': '12345',                  # Not used with sqlite3.
-        'HOST': 'sajara01',                      # Set to empty string for localhost. Not used with sqlite3.
-        'PORT': '5432',
-    }
-}
-
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
@@ -58,7 +85,7 @@ SITE_ID = 1
 ROOT_URL = "http://207.245.89.214"
 
 MEDIA_ROOT = os.path.join(os.path.dirname(__file__), 'media/')
-MEDIA_URL = ''
+MEDIA_URL = '/media/'
 ADMIN_MEDIA_ROOT = os.path.join(os.path.dirname(__file__), 'admin_media/')
 ADMIN_MEDIA_PREFIX = '/admin_media/'
 
@@ -72,5 +99,10 @@ TEMPLATE_DIRS = (
     os.path.join(os.path.dirname(__file__), 'templates/Philadelphia'),
     os.path.join(os.path.dirname(__file__), 'templates'),
 )
+
+try:
+    from settings_db import *
+except ImportError, exp:
+    pass
 
 

@@ -32,6 +32,7 @@ For issues or questions you can try mailing the user list: http://groups.google.
 * python-simplejson
 * python-django-extensions
 * python-gdal
+* gdal-bin
 
 ###Required libraries from the web###
 * wget http://django-template-utils.googlecode.com/files/template_utils-0.4p2.tar.gz
@@ -44,6 +45,7 @@ For issues or questions you can try mailing the user list: http://groups.google.
 * wget https://bitbucket.org/jiaaro/django-badges/get/tip.tar.gz
 * wget https://bitbucket.org/ubernostrum/django-registration/downloads/django-registration-0.8-alpha-1.tar.gz
 * git clone git://github.com/miracle2k/webassets.git
+* pip install django-pipeline
 
 ###Patches:###
     Fix to proj to deal with spherical mercator

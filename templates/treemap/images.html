@@ -1,5 +1,6 @@
 {% extends "template_3.html" %}
 
+{% load pagination_tags %}
 {% load thumbnail dynamic_attribute %}
 {% block body_id %}id="images"{% endblock %}
 {% block content %}
@@ -18,11 +19,16 @@
 {% block left_panel %}
 
 
+{% autopaginate tree_images 40 %}
 	<div id="tree_image_list">
 		<h3>Tree Photos</h3>
+        {% paginate %}
 		<ul>
 		{% for image in tree_images %}
-			<li><img src="{% thumbnail image.photo '100x100' upscale  %}" />
+			<li>
+            {% thumbnail image.photo "100x100" as image  %}
+                <img src="{{ image.url }}" />
+            {% endthumbnail %}
 			<a class="view" href="{% url treemap.views.trees image.tree.id %}" >View</a>
 			<a class="delete" href="javascript:void(0)" onclick="tm.deletePhoto({{ image.tree.id }}, {{ image.id }}); return false;">X</a>
 			</li>
@@ -34,11 +40,16 @@
 {% endblock %}
 
 {% block right_panel %}
+{% autopaginate user_images 10 %}
 	<div id="profile_image_list">
 		<h3>User Photos</h3>
+        {% paginate %}
 		<ul>
 		{% for image in user_images %}
-			<li><img src="{% thumbnail image.photo '100x100' bw upscale  %}" />
+			<li>
+            {% thumbnail image.photo "100x100" colorspace="GRAY" crop="center" as image  %}
+                <img src="{{ image.url }}" />
+            {% endthumbnail %}
 			<a class="view" href="{% url profiles.views.profile_detail image.user.username %}" >View</a>
 			<a class="delete" href="javascript:void(0)" onclick="tm.deleteUserPhoto('{{ image.user.username }}'); return false;">X</a>
 			</li>

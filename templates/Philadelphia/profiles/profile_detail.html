@@ -2,18 +2,15 @@
 {% load thumbnail dynamic_attribute %}
 
 {% block extrahead %}
-        <script type="text/javascript" src="{{ STATIC_URL }}js/map.js"></script>
-	    <script src="http://ecn.dev.virtualearth.net/mapcontrol/mapcontrol.ashx?v=6.2&mkt=en-us"></script>
+    {% load compressed %}
+    {% compressed_js 'map' %}
+    <script type="text/javascript">
+        //fix bing map issue in firefox
+        if (!window.attachEvent) { window.attachEvent = function (){}; }
+    </script>
 
-<script type="text/javascript">
-    jQuery().ready(function() {
-        var favorite_trees = '{{favorite_trees}}';
-        tm.init_favorite_map('{{ profile.user.username }}'); //not editable
-        tm.add_favorite_handlers('/trees/favorites/create/', '/trees/favorites/delete/');
+	<script src="http://ecn.dev.virtualearth.net/mapcontrol/mapcontrol.ashx?v=6.2&mkt=en-us"></script>
 
-    });
-
-</script>
 {% endblock %}
 
 
@@ -35,7 +32,11 @@
         <div id="t2_top_left_panel">
             <ul id="userImage">
                 <li>{% if profile.photo %}
-                <img src="{% thumbnail profile.photo 200x100 bw autocrop %}" class="mainImage" />{% else %}<img src="{{ STATIC_URL }}images/v2/profile1.gif" alt="Profile image" width="180" class="mainImage" />
+                    {% thumbnail profile.photo "200x100" colorspace="GRAY" crop="center" as image %}
+                    <img src="{{ image.url }}" class="mainImage" />
+                    {% endthumbnail %}
+                {% else %}
+                    <img src="{{ STATIC_URL }}images/v2/profile1.gif" alt="Profile image" width="180" class="mainImage" />                        
                 {% endif %}</li>
             </ul>
 
@@ -273,7 +274,9 @@
                     {% for pic in profile.recently_added_photos %}
                     <li>
                         <a href="{% url treemap.views.trees pic.tree.id %}">
-                            <img src="{% thumbnail pic.photo 100x70 crop %}" alt="image description" width="202" height="146" />
+                            {% thumbnail pic.photo "100x70" crop="center" as image %}
+                            <img src="{{ image.url }}" alt="image description" width="202" height="146" />
+                            {% endthumbnail %}
                         </a>
 
                         <dl>
@@ -376,3 +379,15 @@
 			</div>
 {% endcomment %}
 {% endblock %}
+
+{% block endpage %}
+<script type="text/javascript">
+    jQuery().ready(function() {
+        var favorite_trees = '{{favorite_trees}}';
+        tm.init_favorite_map('{{ profile.user.username }}'); //not editable
+        tm.add_favorite_handlers('trees/favorites/create/', 'trees/favorites/delete/');
+
+    });
+</script>
+{% endblock %}
+
