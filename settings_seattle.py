@@ -1,10 +1,10 @@
 import os
 import logging
 
-logging.basicConfig(
-    level = logging.DEBUG,
-    format = '%(asctime)s %(levelname)s %(message)s',
-)
+#logging.basicConfig(
+#    level = logging.DEBUG,
+#    format = '%(asctime)s %(levelname)s %(message)s',
+#)
 
 GEOSERVER_URL = 'http://sasdev.dnsalias.org:8080/geoserver/wms?transparent=true'
 TILECACHE_URL = 'http://tilecache.sasdev.dnsalias.org/tilecache.cgi?'
