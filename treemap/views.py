@@ -2022,7 +2022,7 @@ def geographies(request, model, id=''):
     if name:
         ns = ns.filter(name__iexact=name)[:1]
         #print ns
-    if list:        
+    if list and not settings.SHOW_ALL_SEARCH:        
         ns = ns.exclude(aggregates__total_plots=0)
     if format.lower() == 'json':
         #print ns
