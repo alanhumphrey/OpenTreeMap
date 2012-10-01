@@ -6,6 +6,8 @@ from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 from django.forms.forms import NON_FIELD_ERRORS
 
+from django.conf import settings
+
 def validate_form(form, request):
     if form.is_valid():
         try:
@@ -20,32 +22,6 @@ def validate_form(form, request):
 
 
 import re
-
-def get_summaries_and_benefits(obj):
-    try:
-        # Note: 'aggregate' is a queryset method
-        # while 'aggregates' is a tricky related_name of some custom models!
-        # look ma: AggregateNeighborhood.objects.all()[0].location.aggregates
-        agg = obj.aggregates
-    except AttributeError:
-        try:
-            obj.annual_stormwater_management
-            agg = obj
-        except Exception, e:
-            print str(e)
-            return None, None
-    if agg:
-        summaries = {} #TODO assumes incorrectly that we have aggregate
-        #fields = ['annual_stormwater_management', 'annual_electricity_conserved', 
-        #          'annual_natural_gas_conserved', 'annual_air_quality_improvement', 
-        #          'annual_co2_sequestered', 'total_co2_stored', 
-        #          'total_trees', 'distinct_species']
-        for f in agg._meta.get_all_field_names():
-            if f.startswith('total') or f.startswith('annual'):
-                summaries[f] = getattr(agg,f)
-        benefits = agg.get_benefits()
-    return summaries, benefits
-
 
 def get_pt_or_bbox(rg):
     """
@@ -66,6 +42,22 @@ def get_pt_or_bbox(rg):
         return p1.union(p2).envelope
     return None
 
+ADD_INITIAL_DEFAULTS = {
+    'address': "Enter an Address or Intersection", 
+    'city': "Enter a City", 
+    'species_full': "Enter a Species Name", 
+    'genus': "", 
+    'species': "", 
+    'dbh': "", 
+    'height': "", 
+    'canopy': "", 
+    'owner': ""
+}
+def get_add_initial(setting_name):
+    if settings.ADD_INITIAL_DEFAULTS and set([setting_name]).issubset(settings.ADD_INITIAL_DEFAULTS):
+        return settings.ADD_INITIAL_DEFAULTS[setting_name]
+    else:
+        return ADD_INITIAL_DEFAULTS[setting_name]
 
 def render_to_geojson(query_set, geom_field=None, mimetype='text/plain', pretty_print=True, excluded_fields=[], simplify='', additional_data=None, model=None, extent=None):
     '''
@@ -75,10 +67,6 @@ def render_to_geojson(query_set, geom_field=None, mimetype='text/plain', pretty_
     
     '''
     collection = {}
-    # Find the geometry field
-    # qs.query._geo_field()
-
-    excluded_fields += ['current_geometry'] 
 
     if not model:
         model = query_set.model
@@ -91,7 +79,6 @@ def render_to_geojson(query_set, geom_field=None, mimetype='text/plain', pretty_
     
     #attempt to assign geom_field that was passed in
     if geom_field:
-        #print 'geom_field',geom_field
         geo_fieldnames = [x.name for x in geo_fields]
         try:
             geo_field = geo_fields[geo_fieldnames.index(geom_field)]
@@ -122,44 +109,36 @@ def render_to_geojson(query_set, geom_field=None, mimetype='text/plain', pretty_
       for item in query_set:
         feat = {}
         feat['type'] = 'Feature'
-        d = item.__dict__.copy()
+        d = {}
         
         #special attribs for trees:
         if  model.__name__ == 'Tree':
-            #if item.site_type:
-            #    d['site_type'] = item.get_site_type_display()
             if item.species:
                 d['scientific_name'] = item.species.scientific_name
                 d['common_name'] = item.species.common_name
                 d['flowering'] = item.species.flower_conspicuous
                 d['native'] = item.species.native_status
         elif model.__name__ == 'Plot':
-            if item.current_tree() and item.current_tree().species:
-                d['scientific_name'] = item.current_tree().species.scientific_name
-                d['common_name'] = item.current_tree().species.common_name
-                d['dbh'] = item.current_tree().dbh
-                d['height'] = item.current_tree().height
+            tree = item.current_tree()
+            if tree:
+                if tree.species:
+                    d['scientific_name'] = tree.species.scientific_name
+                    d['common_name'] = tree.species.common_name
+                d['dbh'] = tree.dbh
+                d['height'] = tree.height
                 d['tree'] = True
             else:
                 d['tree'] = False
                 
-
-        if d.has_key('distance'):
-            d['distance'] = d['distance'].ft
-
-        #set up special attribs for geographies
-        # todo - make more generic?
-        if model.__name__ in ['Neighborhood','ZipCode']:
-            summaries, benefits = get_summaries_and_benefits(item)
-            
+        if hasattr(item, 'distance'):
+            d['distance'] = getattr(item,'distance').ft
                 
         g = getattr(item,geo_field.name)
         if simplify:
             g = g.simplify(simplify)
-        d.pop(geo_field.name)
-        for field in excluded_fields:
-            if d.has_key(field): d.pop(field)
-        if d.has_key('_state'): d.pop('_state')
+        for field in item._meta.fields:
+            if field.name not in excluded_fields:
+                d[field.name] = str(getattr(item, field.name))
 
         feat['geometry'] = simplejson.loads(g.geojson)
         feat['properties'] = d

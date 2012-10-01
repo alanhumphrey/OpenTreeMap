@@ -29,7 +29,7 @@ if (typeof OpenLayers != "undefined") {
             mapCoord.transform(tm.map.getProjectionObject(), new OpenLayers.Projection("EPSG:4326"));
             tm.clckTimeOut = window.setTimeout(function() {
                 tm.singleClick(mapCoord)
-            },500);
+            },300);
         }
 
     });
@@ -78,7 +78,7 @@ tm.init_map = function(div_id){
     
     tm.map.addLayers([tm.vector_layer, tm.tree_layer, tm.misc_markers]);
     tm.map.setCenter(
-        new OpenLayers.LonLat(tm.map_center_lon, tm.map_center_lat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
+        new OpenLayers.LonLat(treemap_settings.mapCenterLon, treemap_settings.mapCenterLat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
         , tm.start_zoom);
     
     //check to see if coming for a bookmarked tree
@@ -95,11 +95,17 @@ tm.init_map = function(div_id){
     $(".mapToggle").click(function(evt) {
         if ($(".mapToggle").html() == 'View Satellite') {
             tm.map.setBaseLayer(tm.aerial);
-            $(".mapToggle").html('View Streets')
+            $(".mapToggle").html('View Streets');
         }
         else if ($(".mapToggle").html() == 'View Streets') {
-            tm.map.setBaseLayer(tm.baseLayer);
-            $(".mapToggle").html('View Satellite')
+            if (tm.baseLayer.type == 'terrain' && tm.map.getZoom() >= 16)
+            {
+                $(".mapError").html('Terrain Layer is not available at this zoom level. Please zoom out to switch layers.').slideDown().delay(3500).slideUp();
+            }
+            else {
+                tm.map.setBaseLayer(tm.baseLayer);
+                $(".mapToggle").html('View Satellite');
+            }
         }
         evt.preventDefault();
         evt.stopPropagation();
@@ -149,7 +155,7 @@ tm.init_add_map = function(){
     tm.map.setBaseLayer(tm.aerial);
     tm.map.addControl(tm.drag_control);
     tm.map.setCenter(
-        new OpenLayers.LonLat(tm.map_center_lon, tm.map_center_lat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
+        new OpenLayers.LonLat(treemap_settings.mapCenterLon, treemap_settings.mapCenterLat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
         , tm.add_start_zoom);
     
     tm.geocoder = new google.maps.Geocoder();
@@ -331,6 +337,11 @@ tm.init_tree_map = function(editable){
                 $('#edit_address_city').val(city);
                 $('#edit_address_city').html(city);
             }
+            if ($('#id_geocode_address')) {
+                var geocode_address = full_address.split(city)[0].split(',')[0]
+                $('#id_geocode_address').val(geocode_address);
+                $('#id_geocode_address').html(geocode_address);
+            }
             if ($('#edit_address_zip')) {
                 $('#edit_address_zip').val(zip);
                 $('#edit_address_zip').html(zip);
@@ -504,7 +515,7 @@ tm.load_streetview = function(ll, div){
             
         }
         else {
-            $(div).hide()
+            $(div).html("<div class='no_streetview'>Street View is not available for this location.</div>");
         }
     });       
     

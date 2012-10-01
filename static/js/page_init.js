@@ -22,6 +22,19 @@ tm.buildLocationList = function() {
     });
 };
 
+tm.getChoicesList = function() {
+    $.getJSON(tm_static + 'choices/', function(choices) {
+        tm.choices = choices;
+    });
+}
+
+tm.getHomeFeeds = function(callback) {
+    $.getJSON(tm_static + "home/feeds/json/", function(feeds) {
+        tm.homeFeeds = feeds;
+        if (callback) {callback();}
+    });
+}
+
 tm.resultsTemplatePageLoad = function(min_year, current_year, min_updated, max_updated, min_plot, max_plot) {    
     tm.init_map('results_map');
 
@@ -43,11 +56,14 @@ tm.resultsTemplatePageLoad = function(min_year, current_year, min_updated, max_u
     $(".input-box input").change(function(evt) { 
         if (this.value != "") {
             tm.searchParams[this.id] = this.value; 
+        } else {
+            delete tm.searchParams[this.id];
         }
+        
     });
     var curmin = 0;
     var curmax = 50;
-    $("#diameter_slider").slider({'range': true, max: 50, min: 0, values: [0, 50],
+    $("#diameter_slider").slider({'range': true, max: 75, min: 0, values: [0, 75],
                                   slide: function() { 
                                       var min = $(this).slider('values', 0)
                                       var max = $(this).slider('values', 1)
@@ -77,50 +93,52 @@ tm.resultsTemplatePageLoad = function(min_year, current_year, min_updated, max_u
                                     tm.searchParams['height_range'] = min+'-'+max;
                                 }
                                });
-    
-    $("#planted_slider")[0].updateDisplay = function() {
-        var min = $("#planted_slider").slider('values', 0)
-        var max = $("#planted_slider").slider('values', 1)
-        $('#min_planted').html(min);
-        $('#max_planted').html(max);
+    if ($("#planted_slider").length) {
+        $("#planted_slider")[0].updateDisplay = function() {
+            var min = $("#planted_slider").slider('values', 0)
+            var max = $("#planted_slider").slider('values', 1)
+            $('#min_planted').html(min);
+            $('#max_planted').html(max);
+        }
+        $("#planted_slider").slider({'range': true, min: min_year, max: current_year,
+                                     values: [min_year, current_year],
+                                     slide: function() { 
+                                         $("#planted_slider")[0].updateDisplay();
+                                     },
+                                     change: function() {
+                                         $("#planted_slider")[0].updateDisplay();
+                                         var min = $("#planted_slider").slider('values', 0)
+                                         var max = $("#planted_slider").slider('values', 1)
+                                         tm.searchParams['planted_range'] = min+'-'+max;
+                                     }
+                                    });
+        $("#planted_slider")[0].updateDisplay();
     }
-    $("#planted_slider").slider({'range': true, min: min_year, max: current_year,
-                                 values: [min_year, current_year],
-                                 slide: function() { 
-                                     $("#planted_slider")[0].updateDisplay();
-                                 },
-                                 change: function() {
-                                     $("#planted_slider")[0].updateDisplay();
-                                     var min = $("#planted_slider").slider('values', 0)
-                                     var max = $("#planted_slider").slider('values', 1)
-                                     tm.searchParams['planted_range'] = min+'-'+max;
-                                 }
-                                });
-    $("#planted_slider")[0].updateDisplay();
     
-    $("#updated_slider")[0].updateDisplay = function() {
-        var min = $("#updated_slider").slider('values', 0)
-        var min_d = new Date(parseInt(min) * 1000);
-        var max = $("#updated_slider").slider('values', 1)
-        var max_d = new Date(parseInt(max) * 1000);
-        $('#min_updated').html(tm.dateString(min_d));
-        $('#max_updated').html(tm.dateString(max_d));
-    }        
+    if ($("#updated_slider").length) {
+        $("#updated_slider")[0].updateDisplay = function() {
+            var min = $("#updated_slider").slider('values', 0)
+            var min_d = new Date(parseInt(min) * 1000);
+            var max = $("#updated_slider").slider('values', 1)
+            var max_d = new Date(parseInt(max) * 1000);
+            $('#min_updated').html(tm.dateString(min_d));
+            $('#max_updated').html(tm.dateString(max_d));
+        }        
 
-    $("#updated_slider").slider({'range': true, min: min_updated, max: max_updated,
-                                 values: [min_updated, max_updated],
-                                 slide: function() {
-                                     $("#updated_slider")[0].updateDisplay();
-                                 },    
-                                 change: function() {
-                                     $("#updated_slider")[0].updateDisplay();
-                                     var min = $("#updated_slider").slider('values', 0)
-                                     var max = $("#updated_slider").slider('values', 1)
-                                     tm.searchParams['updated_range'] = min+'-'+max;
-                                 }
-                                });    
-    $("#updated_slider")[0].updateDisplay();
-    
+        $("#updated_slider").slider({'range': true, min: min_updated, max: max_updated,
+                                     values: [min_updated, max_updated],
+                                     slide: function() {
+                                         $("#updated_slider")[0].updateDisplay();
+                                     },    
+                                     change: function() {
+                                         $("#updated_slider")[0].updateDisplay();
+                                         var min = $("#updated_slider").slider('values', 0)
+                                         var max = $("#updated_slider").slider('values', 1)
+                                         tm.searchParams['updated_range'] = min+'-'+max;
+                                     }
+                                    });    
+        $("#updated_slider")[0].updateDisplay();
+    }
     if (!tm.isNumber(max_plot) && max_plot.indexOf('+') != -1) {
         max_p = parseInt(max_plot.split('+')[0]) + 1;
         m_text = max_p - 1 + "+"
@@ -170,13 +188,17 @@ tm.resultsTemplatePageLoad = function(min_year, current_year, min_updated, max_u
     });
 
     $("#close-filters").click(function(evt) {
-        $("#diameter_slider").slider('option', 'values', [0, 50]);
+        $("#diameter_slider").slider('option', 'values', [0, 75]);
         $('#min_diam').html(0);
-        $('#max_diam').html(50);
+        $('#max_diam').html(75);
         $("#planted_slider").slider('option', 'values', [min_year, current_year]);
-        $("#planted_slider")[0].updateDisplay();
         $("#updated_slider").slider('option', 'values', [min_updated, max_updated]);
-        $("#updated_slider")[0].updateDisplay();
+        if ($("#planted_slider").length) {
+            $("#planted_slider")[0].updateDisplay();
+        }
+        if ($("#updated_slider").length) {
+            $("#updated_slider")[0].updateDisplay();
+        }
         $("#height_slider").slider('option', 'values', [0, 200]);
         $('#min_height').html(0);
         $('#max_height').html(200);
@@ -197,23 +219,9 @@ tm.resultsTemplatePageLoad = function(min_year, current_year, min_updated, max_u
         $("#owner").val('');
         $("#updated_by").val('');
         $("#funding").val('');
-        delete tm.searchParams['diameter_range'];
-        delete tm.searchParams['planted_range'];
-        delete tm.searchParams['updated_range'];
-        delete tm.searchParams['height_range'];
-        delete tm.searchParams['plot_range'];
-        delete tm.searchParams['advanced'];
-        delete tm.searchParams['steward'];
-        delete tm.searchParams['owner'];
-        delete tm.searchParams['updated_by'];
-        delete tm.searchParams['funding'];
+        tm.searchParams = {}
 
-        var checks = $("#options_form input:checked");
-        for(var i=0;i<checks.length;i++) {
-            delete tm.searchParams[checks[i].id];
-        }
         $("#options_form input:checked").attr('checked', false)  
-        //tm.updateSearch();
         tm.trackEvent('Search', 'Reset Advanced');
     });        
     
@@ -294,6 +302,7 @@ tm.generateSpeciesDropdown = function(speciesData) {
 tm.baseTemplatePageLoad = function() {
     tm.buildSpeciesList();
     tm.buildLocationList();
+    tm.getChoicesList();
 
     var adv_active = false;
     $('#advanced').click(function() {
@@ -316,6 +325,11 @@ tm.baseTemplatePageLoad = function() {
         return false;
     });
     
+    $('a.search-suggestion').live('click', function(event) { 
+        $("#location_search_input").val($(this).text()).change();
+        return false;
+    });
+
     $("#location_search_input").blur(function(evt) {
         if (!this.value) {
             $("#location_search_input").val("");
@@ -351,10 +365,12 @@ tm.baseTemplatePageLoad = function() {
                 $("#location_search_input").val(tm.initial_location_string);
                 delete tm.searchParams['location'];
                 delete tm.searchParams['geoName'];
+                delete tm.searchParams['lat'];
+                delete tm.searchParams['lon'];
                 if (tm.misc_markers) {tm.misc_markers.clearMarkers();}
                 if (tm.map) {
                     tm.map.setCenter(
-                        new OpenLayers.LonLat(tm.map_center_lon, tm.map_center_lat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
+                        new OpenLayers.LonLat(treemap_settings.mapCenterLon, treemap_settings.mapCenterLat).transform(new OpenLayers.Projection("EPSG:4326"), tm.map.getProjectionObject())
                         , tm.start_zoom);
                 }
                 tm.updateSearch();
@@ -393,9 +409,6 @@ tm.baseTemplatePageLoad = function() {
         }
         if ($("#species_search_id").val()) {
             q = q.set("species", $("#species_search_id").val());
-        }
-        if ($("#species_search_id_cultivar").val()) {
-            q = q.set("cultivar", $("#species_search_id_cultivar").val());
         }
         if (tm.advancedClick) {
             q = q.set('advanced', 'open');

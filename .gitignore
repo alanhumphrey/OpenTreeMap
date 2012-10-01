@@ -6,7 +6,11 @@ media/*
 static/Nodes/*
 static/Species/*
 
+local_settings.py
+impl_settings.py
+choices.py
 fabfile.*
+.coverage
 
 #emacs backup and temp files
 *~

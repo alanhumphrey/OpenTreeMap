@@ -10,4 +10,7 @@ def site_root(context):
         'TILECACHE_LAYER': settings.TILECACHE_LAYER,
         'COPYRIGHT': settings.COPYRIGHT,
         'GOOGLE_API_KEY': settings.GOOGLE_API_KEY,
-        'SHOW_ALL_SEARCH': settings.SHOW_ALL_SEARCH}
+        'SHOW_ALL_SEARCH': settings.SHOW_ALL_SEARCH,
+        'API_KEY_GOOGLE_MAP': settings.API_KEY_GOOGLE_MAP,
+        'API_KEY_GOOGLE_ANALYTICS': settings.API_KEY_GOOGLE_ANALYTICS
+    }

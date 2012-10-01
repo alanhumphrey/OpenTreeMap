@@ -1,5 +1,6 @@
 from django import forms
-from models import Tree, Plot, Species, TreePhoto, TreeAlert, TreeAction, Neighborhood, ZipCode, ImportEvent, Choices, status_choices
+from models import Tree, Plot, Species, TreePhoto, TreeAlert, TreeAction, Neighborhood, ZipCode, ImportEvent, status_choices
+from shortcuts import get_add_initial
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.localflavor.us.forms import USZipCodeField
@@ -7,6 +8,7 @@ from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from datetime import datetime
 import math
+
 
 class ContactForm(forms.Form):
     name = forms.CharField(max_length=100, 
@@ -28,32 +30,32 @@ class TreeEditPhotoForm(forms.ModelForm):
         fields = ('title','photo',)
 
 class TreeAddForm(forms.Form):
-    edit_address_street = forms.CharField(max_length=200, required=True, initial="Enter an Address or Intersection")
+    edit_address_street = forms.CharField(max_length=200, required=True, initial=get_add_initial('address'))
     geocode_address = forms.CharField(widget=forms.HiddenInput, max_length=255, required=True)
-    edit_address_city = forms.CharField(max_length=200, required=False, initial="Enter a City")
+    edit_address_city = forms.CharField(max_length=200, required=False, initial=get_add_initial('city'))
     edit_address_zip = USZipCodeField(widget=forms.HiddenInput, required=False)
     lat = forms.FloatField(widget=forms.HiddenInput,required=True)
     lon = forms.FloatField(widget=forms.HiddenInput,required=True)
     initial_map_location = forms.CharField(max_length=200, required=False, widget=forms.HiddenInput)
-    species_name = forms.CharField(required=False, initial="Enter a Species Name")
-    species_other1 = forms.CharField(required=False, initial="Genus")
-    species_other2 = forms.CharField(required=False, initial="species")
+    species_name = forms.CharField(required=False, initial=get_add_initial('species_full'))
+    species_other1 = forms.CharField(required=False, initial=get_add_initial('genus'))
+    species_other2 = forms.CharField(required=False, initial=get_add_initial('species'))
     species_id = forms.CharField(widget=forms.HiddenInput, required=False)
-    dbh = forms.FloatField(required=False, label="Trunk size")
+    dbh = forms.FloatField(required=False, label="Trunk size", initial=get_add_initial('dbh'))
     dbh_type = forms.ChoiceField(required=False, widget=forms.RadioSelect, choices=[('diameter', 'Diameter'), ('circumference', 'Circumference')])
-    height = forms.FloatField(required=False, label="Tree height")
-    canopy_height = forms.IntegerField(required=False)
+    height = forms.FloatField(required=False, label="Tree height", initial=get_add_initial('height'))
+    canopy_height = forms.IntegerField(required=False, initial=get_add_initial('canopy'))
     plot_width = forms.ChoiceField(required=False, choices=[('1','1'),('2','2'),('3','3'),('4','4'),('5','5'),('6','6'),('7','7'),('8','8'),('9','9'),('10','10'),('11','11'),('12','12'),('13','13'),('14','14'),('15','15'),('99','15+')])
     plot_length = forms.ChoiceField(required=False, choices=[('1','1'),('2','2'),('3','3'),('4','4'),('5','5'),('6','6'),('7','7'),('8','8'),('9','9'),('10','10'),('11','11'),('12','12'),('13','13'),('14','14'),('15','15'),('99','15+')])
     plot_width_in = forms.ChoiceField(required=False, choices=[('1','1'),('2','2'),('3','3'),('4','4'),('5','5'),('6','6'),('7','7'),('8','8'),('9','9'),('10','10'),('11','11')])
     plot_length_in = forms.ChoiceField(required=False, choices=[('1','1'),('2','2'),('3','3'),('4','4'),('5','5'),('6','6'),('7','7'),('8','8'),('9','9'),('10','10'),('11','11')])
-    plot_type = forms.TypedChoiceField(choices=Choices().get_field_choices('plot_type'), required=False)
-    power_lines = forms.TypedChoiceField(choices=Choices().get_field_choices('powerline_conflict_potential'), required=False)
-    sidewalk_damage = forms.ChoiceField(choices=Choices().get_field_choices('sidewalk_damage'), required=False)
-    condition = forms.ChoiceField(choices=Choices().get_field_choices('condition'), required=False)
-    canopy_condition = forms.ChoiceField(choices=Choices().get_field_choices('canopy_condition'), required=False)
-    target = forms.ChoiceField(required=False, choices=[('addsame', 'I want to add another tree using the same tree details'), ('add', 'I want to add another tree with new details'), ('edit', 'I\'m done!')], initial='edit', widget=forms.RadioSelect)        
-    owner_additional_id = forms.CharField(required=False)
+    plot_type = forms.TypedChoiceField(choices=settings.CHOICES["plot_types"], required=False)
+    power_lines = forms.TypedChoiceField(choices=settings.CHOICES["powerlines"], required=False)
+    sidewalk_damage = forms.ChoiceField(choices=settings.CHOICES["sidewalks"], required=False)
+    condition = forms.ChoiceField(choices=settings.CHOICES["conditions"], required=False)
+    canopy_condition = forms.ChoiceField(choices=settings.CHOICES["canopy_conditions"], required=False)
+    target = forms.ChoiceField(required=False, choices=settings.ADD_FORM_TARGETS, initial=settings.ADD_FORM_TARGETS_DEFAULT, widget=forms.RadioSelect)        
+    owner_additional_id = forms.CharField(required=False, initial=get_add_initial('owner'))
 
     def __init__(self, *args, **kwargs):
         super(TreeAddForm, self).__init__(*args, **kwargs)

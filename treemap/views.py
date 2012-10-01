@@ -10,6 +10,7 @@ import subprocess
 from operator import itemgetter, attrgetter
 from itertools import chain
 import simplejson 
+from functools import wraps
 
 from django.conf import settings
 from django.shortcuts import render_to_response, get_object_or_404
@@ -26,6 +27,8 @@ from django.views.decorators.http import require_http_methods
 from django.db.models import Count, Sum, Q, Min, Max
 from django.contrib.gis.shortcuts import render_to_kml
 from django.utils.datastructures import SortedDict
+from django.utils.decorators import available_attrs
+from django.core.exceptions import PermissionDenied
 # formsets
 from django.forms.formsets import formset_factory
 from django.forms.models import inlineformset_factory, modelformset_factory
@@ -35,7 +38,8 @@ from threadedcomments.models import ThreadedComment
 from models import *
 from forms import *
 from profiles.models import UserProfile
-from shortcuts import render_to_geojson, get_pt_or_bbox, get_summaries_and_benefits, validate_form
+from profiles.utils import change_reputation_for_user
+from shortcuts import render_to_geojson, get_pt_or_bbox, validate_form
 
 from registration.signals import user_activated
 from django_reputation.models import Reputation, Permission, UserReputationAction, ReputationAction
@@ -58,9 +62,11 @@ def redirect(rel):
 
 app_models = {'UserProfile':'profiles','User':'auth'}
 
+#TODO: is this used anywhere?
 def average(seq):
     return float(sum(l))/len(l)
 
+#TODO: is this used anywhere?
 def get_app(name):
     app = app_models.get(name)
     return app or 'treemap'
@@ -90,9 +96,31 @@ def static(request, template, subdir="treemap"):
         template = os.path.join(subdir, template)
     return render_to_response(template, RequestContext(request,{}))
 
+def permission_required_or_403_forbidden(perm):
+    """
+    Decorator for views that checks that the user has the specified permission
+    and raises a PermissionDenied exception if they do not, which Django coverts
+    to a 403 HTTP response.
+    """
+
+    def decorator(view_func):
+        @wraps(view_func, assigned=available_attrs(view_func))
+        def _wrapped_view(request, *args, **kwargs):
+            if request.user.has_perm(perm):
+                return view_func(request, *args, **kwargs)
+            else:
+                raise PermissionDenied('%s cannot access this view because they do not have the %s permission' % (request.user.username, perm))
+        return _wrapped_view
+    return decorator
 
 def location_map(request):
     pass
+
+def json_home_feeds(request):
+    feeds = {}
+    feeds['species'] = [(s.id, s.common_name) for s in Species.objects.order_by('-tree_count')[0:4]]
+    feeds['active_nhoods'] = [(n.id, n.name, n.aggregates.total_trees) for n in Neighborhood.objects.order_by('-aggregates__total_trees')[0:6]]
+    return render_to_json(feeds)
 
 def home_feeds(request):
     feeds = {}
@@ -174,6 +202,12 @@ def get_reverse_geocode(request):
         js["error"] = "No point specified"
     return render_to_json(js)
 
+def get_choices(request):
+    choices_list = {}
+    choices_obj = settings.CHOICES
+
+    return render_to_json(choices_obj)
+
 #@cache_page(60*1)
 def result_map(request):
     # get enviro attributes for 'selected' trees
@@ -239,63 +273,65 @@ def plot_location_search(request):
     geom = get_pt_or_bbox(request.GET)
     if not geom:
         return HttpResponseBadRequest()
-
+    
     distance = request.GET.get('distance', settings.MAP_CLICK_RADIUS)
     max_plots = int(request.GET.get('max_plots', 1))
 
     if max_plots > 500: max_plots = 500
+
+    orig_trees, orig_plots, geog_obj, agg_object, tile_query = _build_tree_search_result(request, False)
     
-    plots = Plot.objects.filter(present=True)
-        #don't filter by geocode accuracy until we know why some new trees are getting -1
-        #Q(geocoded_accuracy__gte=8)|Q(geocoded_accuracy=None)|Q(geocoded_accuracy__isnull=True)).filter(
     if geom.geom_type == 'Point':
-
-        #print float(distance), geom, plots
-        plots = plots.filter(geometry__dwithin=(
-            geom, float(distance))
-            ).distance(geom).order_by('distance')
+        orig_plots = orig_plots.filter(geometry__dwithin=(geom, float(distance))).distance(geom).order_by('distance')
+        if orig_plots.count() > 0:
+            plots = orig_plots
+        else:
+            plots = Plot.objects.filter(present=True).filter(geometry__dwithin=(geom, float(distance))).distance(geom).order_by('distance')
     else:
-      plots = plots.filter(geometry__intersects=geom)
-
-    # needed to be able to prioritize overlapping trees
+        orig_plots = orig_plots.filter(geometry__intersects=geom)
+        if orig_plots.count() > 0:
+            plots = orig_plots
+        else:
+            plots = Plot.objects.filter(present=True).filter(geometry__intersects=geom)
 
     if plots:
         extent = plots.extent()
     else:
         extent = []
     
-    species = request.GET.get('species')
-
-    if species:
-        plots_filtered_by_species = plots.filter(tree__species__id=species, tree__present=True)
-        # to allow clicking other trees still...
-        if len(plots_filtered_by_species) > 0:
-            plots = plots_filtered_by_species
-    
     if len(plots) > 0:
         plots = plots[:max_plots]
-    
+
     return render_to_geojson(plots,
                              geom_field='geometry', 
                              excluded_fields=['sidewalk_damage',
                              'address_city',
+                             'address_street',
+                             'address_zip',
+                             'neighborhood',
+                             'neighborhoods',
                              'length',
                              'distance',
                              'geometry',
                              'geocoded_address',
-                             'last_updated_by_id',
+                             'last_updated_by',
+                             'last_updated',
                              'present',
                              'powerline_conflict_potential',
                              'width',
                              'geocoded_lat',
                              'geocoded_lon',
                              'type',
-                             'import_event_id',
-                             'owner_orig_id',
+                             'import_event',
                              'address_zip',
                              'owner_additional_properties',
                              'owner_additional_id',
-                             'geocoded_accuracy'
+                             'geocoded_accuracy',
+                             'data_owner',
+                             'owner_orig_id',
+                             'owner_additional_id',
+                             'owner_additional_properties',
+                             'zipcode_id'
                              ],
                              model=Plot,
                              extent=extent)
@@ -319,10 +355,10 @@ def species(request, selection='all', format='html'):
     if selection == 'nearby':
         location = request.GET.get('location','')
         if not location:
-            return 404
+            raise Http404
         coord = map(float,location.split(','))
         pt = Point(coord[0], coord[1])
-        trees =  Tree.objects.filter(present=True).filter(geometry__dwithin = (pt,.001))#.distance(pt).order_by('distance').count()
+        trees =  Tree.objects.filter(present=True).filter(plot__geometry__dwithin = (pt,.001))#.distance(pt).order_by('distance').count()
         species = Species.objects.filter(tree__in=trees)
     
     if selection == 'all':
@@ -338,7 +374,12 @@ def species(request, selection='all', format='html'):
         return render_to_response('treemap/basic.json',{'json':simplejson.dumps(res)})
         
     if format == 'csv':
-        return ExcelResponse(species)
+        sql_object =  [{
+            "name":"species", 
+            "sql":str(species.query), 
+            "srs":'EPSG:4326'
+        }]
+        return ogr_conversion('CSV', sql_object, "", name="species", geo=False)    
 
     #render to html    
     return render_to_response('treemap/species.html',RequestContext(request,{
@@ -347,6 +388,7 @@ def species(request, selection='all', format='html'):
         }))
         
 
+#TODO: is this used anywhere? Does it even do anything?
 @cache_page(60*5)    
 def top_species(request):
     Species.objects.all().annotate(num_trees=Count('tree')).order_by('-num_trees')        
@@ -370,8 +412,8 @@ def trees(request, tree_id=''):
         if trees.count() == 0:
             raise Http404
         
+        plot = trees[0].plot
         if trees[0].present == False:
-            plot = trees[0].plot
             if plot.present == False:
                 raise Http404
             else:
@@ -379,6 +421,7 @@ def trees(request, tree_id=''):
 
         # get the last 5 edits to each tree piece
         history = trees[0].history.order_by('-last_updated')[:5]
+        history = list(chain(history, plot.history.order_by('-last_updated')[:5]))
         
         recent_edits = unified_history(history)
     
@@ -398,6 +441,7 @@ def trees(request, tree_id=''):
         raise Http404
     if request.GET.get('format','') == 'base_infowindow':
         raise Http404
+    #TODO: is this used anymore now that the plot info window is called from the map page?
     if request.GET.get('format','') == 'eco_infowindow':
         return render_to_response('treemap/tree_detail_eco_infowindow.html',RequestContext(request,{'tree':first}))
     else:
@@ -449,7 +493,7 @@ def plot_add_tree(request, plot_id):
         history = list(chain(history, tree.history.order_by('-last_updated')[:5]))
     recent_edits = unified_history(history)
 
-    Reputation.objects.log_reputation_action(user, user, 'add tree', 25, tree)
+    change_reputation_for_user(user, 'add tree', tree)
     return render_to_json({'status':'success'})
 
 def unified_history(trees, plots=[]):
@@ -478,20 +522,16 @@ def unified_history(trees, plots=[]):
     # sort by the date descending
     return sorted(recent_edits, key=itemgetter(1), reverse=True)
 
-@login_required    
+   
 def tree_edit_choices(request, tree_id, type_):
     tree = get_object_or_404(Tree, pk=tree_id)
-    choices = Choices().get_field_choices(type_)
+    choices = settings.CHOICES[type_]
     data = SortedDict(choices)
-    #for item in choices: 
-    #    data[item[0]] = item[1]
     if hasattr(tree, type_):
         val = getattr(tree, type_)
-        #for item in choices:
-        #    if item[0] = val:
-        #        val = item[1]
         data['selected'] = val   
     else:
+        #TODO: this code looks to be defunct after switch to choices.py archetecture
         if type_ == "condition":
             sidewalks = tree.treestatus_set.filter(key="condition").order_by("-reported")
             if sidewalks.count():
@@ -502,20 +542,16 @@ def tree_edit_choices(request, tree_id, type_):
                 data['selected'] = str(int(sidewalks[0].value))
     return HttpResponse(simplejson.dumps(data))    
 
-@login_required    
+  
 def plot_edit_choices(request, plot_id, type_):
     plot = get_object_or_404(Plot, pk=plot_id)
-    choices = Choices().get_field_choices(type_)
+    choices = settings.CHOICES[type_]
     data = SortedDict(choices)
-    #for item in choices: 
-    #    data[item[0]] = item[1]
     if hasattr(plot, type_):
         val = getattr(plot, type_)
-        #for item in choices:
-        #    if item[0] = val:
-        #        val = item[1]
         data['selected'] = val   
     else:
+        #TODO: this code looks to be defunct after switch to choices.py archetecture
         if type_ == "sidewalk_damage":
             sidewalks = plot.treestatus_set.filter(key="sidewalk_damage").order_by("-reported")
             if sidewalks.count():
@@ -549,6 +585,7 @@ def tree_add_edit_photos(request, tree_id = ''):
          
 
 @login_required
+#TODO: possibly unused
 def batch_edit(request):
     return render_to_response('treemap/batch_edit.html',RequestContext(request,{ }))
 
@@ -576,37 +613,20 @@ def plot_edit(request, plot_id = ''):
 
     return render_to_response('treemap/tree_edit.html',RequestContext(request,{ 'tree': plot.current_tree(), 'plot': plot, 'reputation': reputation, 'user': request.user}))   
 
-
+@transaction.commit_on_success
 def tree_delete(request, tree_id):
     tree = Tree.objects.get(pk=tree_id)
-    tree.present = False
-    tree.save()
-    
-    for h in tree.history.all():
-        h.present = False
-        h.save()
+    tree.remove()
     
     return HttpResponse(
         simplejson.dumps({'success':True}, sort_keys=True, indent=4),
         content_type = 'text/plain'
     )
 
-
+@transaction.commit_on_success
 def plot_delete(request, plot_id):
     plot = Plot.objects.get(pk=plot_id)
-    plot.present = False
-    plot.save()
-
-    if plot.current_tree():
-        plot.current_tree().present = False
-        plot.current_tree().save()
-        for h in plot.current_tree().history.all():
-            h.present = False
-            h.save()
-    
-    for h in plot.history.all():
-        h.present = False
-        h.save()
+    plot.remove()
     
     return HttpResponse(
         simplejson.dumps({'success':True}, sort_keys=True, indent=4),
@@ -662,11 +682,8 @@ def update_users(request):
     if post.get('rep_total'):  
         id = post.get('user_id')
         user = User.objects.get(pk=id)
-        rep = Reputation.objects.reputation_for_user(user)
-        #rep_gain = int(post.get('rep_total')) - rep.reputation
         user.reputation.reputation = int(post.get('rep_total'))
         user.reputation.save()
-        #Reputation.objects.log_reputation_action(user, request.user, 'Administrative Action', rep_gain, user)
         response_dict['success'] = True
     elif post.get('group_id'):
         id = post.get('user_id')
@@ -679,8 +696,6 @@ def update_users(request):
             rep = Reputation.objects.reputation_for_user(user)
             #increase rep if now part of an 'admin' group and too low
             if user.has_perm('django_reputation.change_reputation') and rep.reputation < 1000:
-                #rep_gain = 100 - rep.reputation
-                #Reputation.objects.log_reputation_action(user, request.user, 'Administrative Action', rep_gain, user)
                 user.reputation.reputation = 1001
                 user.reputation.save()
                 response_dict['new_rep'] = user.reputation.reputation
@@ -729,7 +744,7 @@ def user_opt_export(request, format):
     if len(where) > 0:
         sql = sql + " and " + ' and '.join(where)
     
-    return ogr_conversion('CSV', sql, "", name="emails", geo=False)    
+    return ogr_conversion('CSV', [{'name':'emails', 'sql':sql}], name="emails", geo=False)    
 
 @permission_required('auth.change_user')
 def ban_user(request):
@@ -794,27 +809,48 @@ def multi_status(request):
         ts.save()
     return HttpResponse("OK")    
 
-@login_required
-def approve_pend(request, pend_id):
-    pend = TreePending.objects.get(pk=pend_id)
+def get_tree_pend_or_plot_pend_by_id_or_404_not_found(pend_id):
+    try:
+        pend = TreePending.objects.get(pk=pend_id)
+        model_name = 'Tree'
+    except TreePending.DoesNotExist:
+        pend = None
+        model_name = None
+
     if not pend:
-        pend = PlotPending.objects.get(pk=pend_id)
+        try:
+            pend = PlotPending.objects.get(pk=pend_id)
+            model_name = 'Plot'
+        except PlotPending.DoesNotExist:
+            pend = None
+            model_name = None
+
     if not pend:
         raise Http404
-    pend.approve(request.user)
-    Reputation.objects.log_reputation_action(pend.submitted_by, pend.updated_by, 'edit tree', 5, pend.tree)
+
+    return pend, model_name
+
+@login_required
+@permission_required_or_403_forbidden('treemap.change_pending')
+def approve_pend(request, pend_id):
+    pend, model = get_tree_pend_or_plot_pend_by_id_or_404_not_found(pend_id)
+
+    pend.approve_and_reject_other_active_pends_for_the_same_field(request.user)
+
+    if model == 'Tree':
+        change_reputation_for_user(pend.submitted_by, 'edit tree', pend.tree, change_initiated_by_user=pend.updated_by)
+    else: # model == 'Plot'
+        change_reputation_for_user(pend.submitted_by, 'edit plot', pend.plot, change_initiated_by_user=pend.updated_by)
+
     return HttpResponse(
         simplejson.dumps({'success': True, 'pend_id': pend_id}, sort_keys=True, indent=4),
         content_type = 'text/plain'
     ) 
 
 @login_required
+@permission_required_or_403_forbidden('treemap.change_pending')
 def reject_pend(request, pend_id):
-    pend = TreePending.objects.get(pk=pend_id)
-    if not pend:
-        pend = PlotPending.objects.get(pk=pend_id)
-    if not pend:
-        raise Http404
+    pend, model = get_tree_pend_or_plot_pend_by_id_or_404_not_found(pend_id)
     pend.reject(request.user)
     return HttpResponse(
         simplejson.dumps({'success': True, 'pend_id': pend_id}, sort_keys=True, indent=4),
@@ -893,7 +929,6 @@ def object_update(request):
         
     parent_instance = None
     post = {}
-    save_value = 5
     
     if request.method == 'POST':
         if request.META['SERVER_NAME'] == 'testserver':
@@ -951,10 +986,15 @@ def object_update(request):
                 
                     # if the tree was added by the public, or the current user is not public, skip pending
                 if settings.PENDING_ON and (post['model'] == "Tree" or post['model'] == "Plot"):
-                    insert_event_mgmt = instance.history.filter(_audit_change_type='I')[0].last_updated_by.has_perm('auth.change_user')
+                    audit_insert_records = instance.history.filter(_audit_change_type='I')
+                    if len(audit_insert_records) > 0:
+                        insert_event_mgmt = audit_insert_records[0].last_updated_by.has_perm('auth.change_user')
+                    else:
+                        insert_event_mgmt = True # If the insert audit record is missing, assume it was created by a manager
+
                     mgmt_user = request.user.has_perm('auth.change_user')
                     if insert_event_mgmt and not mgmt_user:
-                        for k,v in update.items():
+                        for k,v in update.items():  
                             fld = instance._meta.get_field(k.replace('_id',''))
                             try:
                                 cleaned = fld.clean(v,instance)
@@ -982,10 +1022,14 @@ def object_update(request):
                                 if k == 'species_id':
                                     pend.text_value = Species.objects.get(id=v).scientific_name
 
-                                for key, value in Choices().get_field_choices(k):
-                                    if str(key) == str(v):
-                                        pend.text_value = value
+                                for field in instance._meta.fields:
+                                    if str(field.name) == str(fld.name):
+                                        for choice in field.choices:
+                                            if str(choice[0]) == str(cleaned):
+                                                pend.text_value = choice[1]
+                                                break
                                         break
+
                                 pend.save()
 
                             except ValidationError,e:
@@ -1035,7 +1079,7 @@ def object_update(request):
                 #   circ = update.get('value')
                 #   if circ:
                 #       update['value'] = circ/math.pi 
-                #   #response_dict['update']['']    
+                #   #response_dict['update']['']  
                 for k,v in update.items():
                     if hasattr(instance,k):
                         #print k,v
@@ -1122,7 +1166,7 @@ def object_update(request):
                             action_name = 'edit plot'
                         else:
                             action_name = 'edit tree'
-                        Reputation.objects.log_reputation_action(request.user, request.user, action_name, save_value, instance)
+                        change_reputation_for_user(request.user, action_name, instance)
                     if hasattr(instance, 'validate_all'):
                         instance.validate_all()
                 if parent_instance:
@@ -1146,15 +1190,23 @@ def object_update(request):
             )
 
 
-def create_pending_records(self, plot_base, plot_new_flds, user):
+def create_pending_records(plot_base, plot_new_flds, user):
     pends = []
     for fld, new_field_val in plot_new_flds.iteritems():
-        if getattr(plot_base, fld) is not new_fld_val:
+        if getattr(plot_base, fld) is not new_field_val:
             pend = PlotPending(plot=plot_base, field=fld, value=new_field_val, status='pending')
             pend.submitted_by = pend.updated_by = user
         
             if fld == 'geometry':
                 pend.geometry = plot_new_flds
+
+            for field in Plot._meta.fields:
+                if str(field.name) == str(fld):
+                    for choice in field.choices:
+                        if str(choice[0]) == str(new_field_val):
+                            pend.text_value = choice[1]
+                            break
+                    break
 
             pends.append(pend)
 
@@ -1185,7 +1237,7 @@ def add_tree_stewardship(request, tree_id):
         date = datetime.strptime(post['performed_date'],'%m/%d/%Y')
         activity = TreeStewardship(performed_by=request.user, tree=tree, activity=post['activity'], performed_date=date)
         activity.save()
-        Reputation.objects.log_reputation_action(request.user, request.user, "add stewardship", 5, activity)
+        change_reputation_for_user(request.user, 'add stewardship', activity)
     except ValidationError, e:
         if hasattr(e, 'message_dict'):
             for (fld,msgs) in e.message_dict.items():
@@ -1221,7 +1273,7 @@ def add_plot_stewardship(request, plot_id):
         date = datetime.strptime(post['performed_date'],'%m/%d/%Y')
         activity = PlotStewardship(performed_by=request.user, plot=plot, activity=post['activity'], performed_date=date)
         activity.save()
-        Reputation.objects.log_reputation_action(request.user, request.user, "add stewardship", 5, activity)
+        change_reputation_for_user(request.user, 'add stewardship', activity)
     except ValidationError, e:
         if hasattr(e, 'message_dict'):
             for (fld,msgs) in e.message_dict.items():
@@ -1244,8 +1296,8 @@ def add_plot_stewardship(request, plot_id):
 @csrf_view_exempt
 def delete_tree_stewardship(request, tree_id, activity_id):
     activity = get_object_or_404(TreeStewardship, pk=activity_id)
-    activity.delete() 
-    Reputation.objects.log_reputation_action(request.user, request.user, "remove stewardship", -5, activity)
+    activity.delete()
+    change_reputation_for_user(request.user, 'remove stewardship', activity)
     return HttpResponse(
             simplejson.dumps({'success': True}),
             content_type = 'application/json')
@@ -1254,8 +1306,8 @@ def delete_tree_stewardship(request, tree_id, activity_id):
 @csrf_view_exempt
 def delete_plot_stewardship(request, plot_id, activity_id):
     activity = get_object_or_404(PlotStewardship, pk=activity_id)
-    activity.delete() 
-    Reputation.objects.log_reputation_action(request.user, request.user, "remove stewardship", -5, activity)
+    activity.delete()
+    change_reputation_for_user(request.user, 'remove stewardship', activity)
     return HttpResponse(
             simplejson.dumps({'success': True}),
             content_type = 'application/json')
@@ -1270,7 +1322,6 @@ def update_plot(request, plot_id):
                     "owner_additional_id" ]
 
     post = {}
-    rep_gained_by_editing_field = 5
     
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
@@ -1291,7 +1342,11 @@ def update_plot(request, plot_id):
 
         if settings.PENDING_ON :
             # if the tree was added by the public, or the current user is not public, skip pending
-            insert_event_mgmt = plot.history.filter(_audit_change_type='I')[0].last_updated_by.has_perm('auth.change_user')
+            audit_insert_records = plot.history.filter(_audit_change_type='I')
+            if len(audit_insert_records) > 0:
+                insert_event_mgmt = audit_insert_records[0].last_updated_by.has_perm('auth.change_user')
+            else:
+                insert_event_mgmt = True # If the insert audit record is missing, assume it was created by a manager
             mgmt_user = request.user.has_perm('auth.change_user')
             if insert_event_mgmt and not mgmt_user:
                 # Get a clean plot object
@@ -1307,17 +1362,16 @@ def update_plot(request, plot_id):
                 plot._audit_diff = simplejson.dumps(post)
                 plot.save()
 
-                Reputation.objects.log_reputation_action(request.user, request.user, 
-                                                 "edit plot", rep_gained_by_editing_field, plot)
+                change_reputation_for_user(request.user, 'edit plot', plot)
+
         else:
             plot.last_updated_by = request.user
 
             # finally save the instance...
             plot._audit_diff = simplejson.dumps(post)
             plot.save()
+            change_reputation_for_user(request.user, 'edit plot', plot)
 
-            Reputation.objects.log_reputation_action(request.user, request.user, 
-                                                     "edit plot", rep_gained_by_editing_field, plot)
     except ValidationError, e:
         if hasattr(e, 'message_dict'):
             for (fld,msgs) in e.message_dict.items():
@@ -1332,7 +1386,10 @@ def update_plot(request, plot_id):
         
         plot = get_object_or_404(Plot, pk=plot_id)
         for k,v in post.items():
-            response_dict['update'][k] = get_attr_or_display(plot,k)        
+            response_dict['update'][k] = get_attr_or_display(plot,k)
+            if settings.PENDING_ON:
+                if insert_event_mgmt and not mgmt_user:
+                    response_dict['update'][k] = "Pending"  
 
     return HttpResponse(
             simplejson.dumps(response_dict),
@@ -1372,17 +1429,20 @@ def tree_add(request, tree_id = ''):
         if validate_form(form, request):
             new_tree = form.result
 
-            Reputation.objects.log_reputation_action(request.user, request.user, 'add tree', 25, new_tree)
+            change_reputation_for_user(request.user, 'add tree', new_tree)
+
             if form.cleaned_data.get('target') == "add":
                 form = TreeAddForm()
                 messages.success(request, "Your tree was successfully added!")
             elif form.cleaned_data.get('target') == "addsame":
                 messages.success(request, "Your tree was successfully added!")
                 pass
-            elif form.cleaned_data.get('target') == "edit":
+            elif form.cleaned_data.get('target') == "view":
                 return redirect("trees/new/%i/" % request.user.id)
+            elif form.cleaned_data.get('target') == "edit":
+                return redirect("plots/%i/edit/" % new_tree.id)
             else:
-                return redirect("trees/%i/" % new_tree.id)
+                return redirect("plots/%i/" % new_tree.id)
     else:
         form = TreeAddForm()
     return render_to_response('treemap/tree_add.html', RequestContext(request,{
@@ -1411,54 +1471,48 @@ def added_today_list(request, user_id=None, format=None):
         'user': user}))
 
 
-def _build_tree_search_result(request):
+def _build_tree_search_result(request, with_benefits=True):
     # todo - optimize! OMG Clean it up! >.<
-    choices = Choices()
     tile_query = []
     trees = Tree.objects.filter(present=True).extra(select={'geometry': "select treemap_plot.geometry from treemap_plot where treemap_tree.plot_id = treemap_plot.id"})
     plots = Plot.objects.filter(present=True)
-    
+
     geog_obj = None
     if 'location' in request.GET:
         loc = request.GET['location']
-        if "," in loc:
+        z = ZipCode.objects.filter(zip=loc)
+        if z.count():
+            trees = trees.filter(plot__zipcode = z[0])
+            plots = plots.filter(zipcode = z[0])
+            geog_obj = z[0]
+            tile_query.append("zipcode_id = %d" % z[0].id)
+    elif 'distance' in request.GET:
+        # geographic search handled in the plot_location_search function
+        pass
+    else:
+        ns = None
+        if 'geoName' in request.GET:
             ns = Neighborhood.objects.all().order_by('id')
-            if 'geoName' in request.GET:
-                geoname = request.GET['geoName']
-                ns = ns.filter(name=geoname)
-            else:   
-                coords = map(float,loc.split(','))
-                pt = Point(coords)
-                ns = ns.filter(geometry__contains=pt)
-            if ns.count():   
-                trees = trees.filter(plot__neighborhood = ns[0])
-		plots = plots.filter(neighborhood = ns[0])
-                geog_obj = ns[0]
-                tile_query.append("neighborhoods LIKE '%" + geog_obj.id.__str__() + "%'")
-        else:
-            z = ZipCode.objects.filter(zip=loc)
-            if z.count():
-                trees = trees.filter(plot__zipcode = z[0])
-		plots = plots.filter(zipcode = z[0])
-                geog_obj = z[0]
-                tile_query.append("zipcode_id = " + z[0].id.__str__())
-    elif 'hood' in request.GET:
-        ns = Neighborhood.objects.filter(name__icontains = request.GET.get('hood'))
+            geoname = request.GET['geoName']
+            ns = ns.filter(name=geoname)
+        elif 'hood' in request.GET:
+            ns = Neighborhood.objects.all().order_by('id')
+            ns = ns.filter(name__icontains = request.GET.get('hood'))
+        elif 'lat' in request.GET and 'lon' in request.GET:
+            pnt = Point(float(request.GET['lon']), float(request.GET['lat']))
+            ns = Neighborhood.objects.all().order_by('id')
+            ns = ns.filter(geometry__contains=pnt)
         if ns:
-             trees = trees.filter(plot__neighborhood = ns[0])
-             plots = plots.filter(neighborhood = ns[0])
-             geog_obj = ns[0]
-             tile_query.append("neighborhoods LIKE '%" + geog_obj.id.__str__() + "%'")
-
-    #import pdb;pdb.set_trace()
+            trees = trees.filter(plot__neighborhood = ns[0])
+            plots = plots.filter(neighborhood = ns[0])
+            geog_obj = ns[0]
+            tile_query.append("(neighborhoods = '%d' OR neighborhoods LIKE '%% %d' OR neighborhoods LIKE '%d %%')" % (geog_obj.id, geog_obj.id, geog_obj.id)) 
 
     missing_current_plot_size = request.GET.get('missing_plot_size','')
     missing_current_plot_type = request.GET.get('missing_plot_type','')
     if missing_current_plot_size:
         trees = trees.filter(Q(plot__length__isnull=True) | Q(plot__width__isnull=True))
         plots = plots.filter(Q(length__isnull=True) | Q(width__isnull=True))
-        # TODO: What about ones with 0 dbh?
-        #species_list = [s.id for s in species]
         tile_query.append(" (plot_length IS NULL OR plot_width IS NULL) ")
 
     if not missing_current_plot_size and 'plot_range' in request.GET:
@@ -1467,25 +1521,20 @@ def _build_tree_search_result(request):
         plots = plots.filter(Q(length__gte=min) | Q(width__gte=min))
         if max != 15: # TODO: Hardcoded in UI, may need to change
             trees = trees.filter(Q(plot__length__lte=max) | Q(plot__length__lte=max))
-	    plots = plots.filter(Q(length__lte=max) | Q(length__lte=max))
+            plots = plots.filter(Q(length__lte=max) | Q(length__lte=max))
         tile_query.append("( (plot_length BETWEEN " + min.__str__() + " AND " + max.__str__() + ") OR (plot_width BETWEEN " + min.__str__() + " AND " + max.__str__() + ") )")
 
     if missing_current_plot_type:
         trees = trees.filter(plot__type__isnull=True)
         plots = plots.filter(type__isnull=True)
-        # TODO: What about ones with 0 dbh?
-        #species_list = [s.id for s in species]
         tile_query.append(" plot_type IS NULL ")
     else:
-        plot_type_choices = choices.get_field_choices('plot_type')
         pt_cql = []
         pt_list = []
-        for k, v in plot_type_choices:
-            if v.lower().replace(' ', '_') in request.GET:
-                plot = request.GET.get(v.lower().replace(' ', '_'),'')
-                if plot:
-                    pt_list.append(k)
-                    pt_cql.append("plot_type = " + k)
+        for k, v in settings.CHOICES["plot_types"]:
+            if v.lower().replace(' ', '_').replace('/','') in request.GET:
+                pt_list.append(k)
+                pt_cql.append("plot_type = " + k)
         if len(pt_cql) > 0:
             tile_query.append("(" + " OR ".join(pt_cql) + ")")
             trees = trees.filter(plot__type__in=pt_list)
@@ -1495,18 +1544,14 @@ def _build_tree_search_result(request):
     if missing_sidewalk: 
         trees = trees.filter(plot__sidewalk_damage__isnull=True)
         plots = plots.filter(sidewalk_damage__isnull=True)
-        #species_list = [s.id for s in species]
         tile_query.append("sidewalk_damage IS NULL")
     else: 
-        sidewalk_choices = choices.get_field_choices('sidewalk_damage')    
         s_cql = []
         s_list = []
-        for k, v in sidewalk_choices:
-            if v.lower().split(' ')[0] in request.GET:
-                sw = request.GET.get(v.lower().split(' ')[0],'')
-                if sw:
-                    s_list.append(k)
-                    s_cql.append("sidewalk_damage = " + k)
+        for k, v in settings.CHOICES["sidewalks"]:
+            if v.lower().replace(' ', "_").replace('/','') in request.GET:
+                s_list.append(k)
+                s_cql.append("sidewalk_damage = " + k)
         if len(s_cql) > 0:
             tile_query.append("(" + " OR ".join(s_cql) + ")")
             trees = trees.filter(plot__sidewalk_damage__in=s_list)
@@ -1515,20 +1560,16 @@ def _build_tree_search_result(request):
 
     missing_powerlines = request.GET.get("missing_powerlines", '')
     if missing_powerlines:
-        trees = trees.filter(Q(plot__powerline_conflict_potential__isnull=True) | Q(plot__powerline_conflict_potential=3))
-        plots = plots.filter(Q(powerline_conflict_potential__isnull=True) | Q(powerline_conflict_potential=3))
-        #species_list = [s.id for s in species]
-        tile_query.append("(powerline_conflict_potential = 3 OR powerline_conflict_potential IS NULL)")
+        trees = trees.filter(plot__powerline_conflict_potential__isnull=True)
+        plots = plots.filter(powerline_conflict_potential__isnull=True)
+        tile_query.append("powerline_conflict_potential IS NULL")
     else:
-        powerline_choices = choices.get_field_choices('powerline_conflict_potential')    
         p_cql = []
         p_list = []
-        for k, v in powerline_choices:
-            if v.lower() in request.GET:
-                sw = request.GET.get(v.lower(),'')
-                if sw:
-                    p_list.append(k)
-                    p_cql.append("powerline_conflict_potential = " + k)
+        for k, v in settings.CHOICES["powerlines"]:
+            if v.lower().replace(" ", "_").replace('/','') in request.GET:
+                p_list.append(k)
+                p_cql.append("powerline_conflict_potential = " + k)
         if len(p_cql) > 0:
             tile_query.append("(" + " OR ".join(p_cql) + ")")
             trees = trees.filter(plot__powerline_conflict_potential__in=p_list)
@@ -1562,107 +1603,94 @@ def _build_tree_search_result(request):
         plots = plots.filter(last_updated__gte=min, last_updated__lte=max)
         tile_query.append("last_updated AFTER " + min.isoformat() + "Z AND last_updated BEFORE " + max.isoformat() + "Z")   
 
-    tree_criteria = {'project1' : '1',
-                     'project2' : '2',
-                     'project3' : '3',
-                     'project4' : '4',
-                     'project5' : '5'}
-    for k in tree_criteria.keys():
-        v = request.GET.get(k,'')
-        if v:
-            attrib = tree_criteria[k]
-            trees = trees.filter(treeflags__key__exact=attrib)
-            plots = Plot.objects.none()
-            tile_query.append("projects LIKE '%" + tree_criteria[k] + "%'")
+    local_cql = []
+    local_list = []
+    for k,v in settings.CHOICES["projects"]:
+        if v.lower().replace(' ', '_').replace('/','') in request.GET:
+            local = request.GET.get(v.lower().replace(' ', '_'),'')
+            if local:
+                local_list.append(k)
+                local_cql.append("projects LIKE '%" + k + "%'")
+    if len(local_cql) > 0:        
+        trees = trees.filter(treeflags__key__in=local_list)
+        plots = plots.filter(tree__treeflags__key__in=local_list)
+        tile_query.append("(" + " OR ".join(local_cql) + ")")
 
-    #filter by missing data params:
     missing_species = request.GET.get('missing_species','')
     if missing_species:
         trees = trees.filter(species__isnull=True)
-        plots = Plot.objects.none()
+        plots = plots.filter(tree__species__isnull=True)
         tile_query.append("species_id IS NULL")
     
-    #
-    ### TODO - add ability to show trees without "correct location"
-    ##
     missing_current_dbh = request.GET.get('missing_diameter','')
     if missing_current_dbh:
         trees = trees.filter(Q(dbh__isnull=True) | Q(dbh=0))
-        plots = Plot.objects.none()
-        # TODO: What about ones with 0 dbh?
-        #species_list = [s.id for s in species]
+        plots = plots.filter(Q(tree__dbh__isnull=True) | Q(tree__dbh=0))
         tile_query.append(" (dbh IS NULL OR dbh = 0) ")
-    
-    if not missing_current_dbh and 'diameter_range' in request.GET:
+    elif 'diameter_range' in request.GET:
         min, max = map(float,request.GET['diameter_range'].split("-"))
         trees = trees.filter(dbh__gte=min)
-        plots = Plot.objects.none()
-        if max != 50: # TODO: Hardcoded in UI, may need to change
+        plots = plots.filter(tree__dbh__gte=min)
+        if max != 50: # TODO: Hardcoded in UI, shouldn't be
             trees = trees.filter(dbh__lte=max)
+            plots = plots.filter(tree__dbh__lte=max)
         tile_query.append("dbh BETWEEN " + min.__str__() + " AND " + max.__str__() + "")
 
     missing_current_height = request.GET.get('missing_height','')
     if missing_current_height:
         trees = trees.filter(Q(height__isnull=True) | Q(height=0))
-        plots = Plot.objects.none()
-        # TODO: What about ones with 0 dbh?
-        #species_list = [s.id for s in species]
+        plots = plots.filter(Q(tree__height__isnull=True) | Q(tree__height=0))
         tile_query.append(" (height IS NULL OR height = 0) ")
-
-    if not missing_current_height and 'height_range' in request.GET:
+    elif 'height_range' in request.GET:
         min, max = map(float,request.GET['height_range'].split("-"))
         trees = trees.filter(height__gte=min)
-        plots = Plot.objects.none()
+        plots = plots.filter(tree__height__gte=min)
         if max != 200: # TODO: Hardcoded in UI, may need to change
             trees = trees.filter(height__lte=max)
+            plots = plots.filter(tree__height__lte=max)
         tile_query.append("height BETWEEN " + min.__str__() + " AND " + max.__str__() + "")
 
     missing_condition = request.GET.get("missing_condition", '')
     if missing_condition: 
         trees = trees.filter(condition__isnull=True)
-        plots = Plot.objects.none()
-        #species_list = [s.id for s in species]
+        plots = plots.filter(tree__condition__isnull=True)
         tile_query.append("condition IS NULL")
-    else: 
-        condition_choices = choices.get_field_choices('condition')    
+    else:   
         c_cql = []
         c_list = []
-        for k, v in condition_choices:
-            if v.lower().replace(' ', '_') in request.GET:
-                cond = request.GET.get(v.lower().replace(' ', '_'),'')
-                if cond:
-                    c_list.append(k)
-                    c_cql.append("condition = " + k)
+        for k, v in settings.CHOICES["conditions"]:
+            if v.lower().replace(' ', '_').replace('/','') in request.GET:
+                c_list.append(k)
+                c_cql.append("condition = " + k)
         if len(c_cql) > 0:
             tile_query.append("(" + " OR ".join(c_cql) + ")")
             trees = trees.filter(condition__in=c_list)
-            plots = Plot.objects.none()
+            plots = plots.filter(tree__condition__in=c_list)
 
     missing_photos = request.GET.get("missing_photos", '')
     if missing_photos:
         trees = trees.filter(treephoto__isnull=True)
-        plots = Plot.objects.none()
-        #species_list = [s.id for s in species]
+        plots = plots.filter(tree__treephoto__isnull=True)
         tile_query.append("(photo_count IS NULL OR photo_count = 0)")
-    if not missing_photos and 'photos' in request.GET:
+    elif 'photos' in request.GET:
         trees = trees.filter(treephoto__isnull=False)
-        plots = Plot.objects.none()
+        plots = plots.filter(tree__treephoto__isnull=False)
         tile_query.append("photo_count > 0")
 
     steward = request.GET.get("steward", "")
     if steward:    
         users = User.objects.filter(username__icontains=steward)
-        trees = trees.filter(steward_user__in=users)
-        plots = Plot.objects.none()
+        trees = trees.filter(Q(steward_user__in=users) | Q(steward_name__icontains=steward))
+        plots = plots.filter(Q(tree__steward_user__in=users) | Q(tree__steward_name__icontains=steward))
         user_list = []
         for u in users:
             user_list.append("steward_user_id = " + u.id.__str__())
-        tile_query.append("(" + " OR ".join(user_list) + ")")
+        tile_query.append("(" + " OR ".join(user_list) + " OR steward_name LIKE '%" + steward + "%')")
 
     funding = request.GET.get("funding", "")
     if funding:
         trees = trees.filter(sponsor__icontains=funding)
-        plots = Plot.objects.none()
+        plots = plots.filter(tree__sponsor__icontains=funding)
         tile_query.append("sponsor LIKE '%" + funding + "%'")
 
     if 'planted_range' in request.GET:
@@ -1670,19 +1698,17 @@ def _build_tree_search_result(request):
         min = "%i-01-01" % min
         max = "%i-12-31" % max
         trees = trees.filter(date_planted__gte=min, date_planted__lte=max)
-        plots = Plot.objects.none()
+        plots = plots.filter(tree__date_planted__gte=min, tree__date_planted__lte=max)
         tile_query.append("date_planted AFTER " + min + "T00:00:00Z AND date_planted BEFORE " + max + "T00:00:00Z")   
 
-        
     species_criteria = {'species' : 'id',
                         'native' : 'native_status',
                         'edible' : 'palatable_human',
                         'color' : 'fall_conspicuous',
-                        'cultivar' : 'cultivar_name',
-                        'flowering' : 'flower_conspicuous'}
+                        'flowering' : 'flower_conspicuous',
+                        'wildlife' : 'wildlife_value'}
 
     if len(set(species_criteria.keys()).intersection(set(request.GET))):
-        #print "doing species search"
         species = Species.objects.filter(tree_count__gt=0)
         max_species_count = species.count()
         
@@ -1694,10 +1720,11 @@ def _build_tree_search_result(request):
                 species = species.filter(**{attrib:v})
                 
         cur_species_count = species.count()
-
+        #TODO: This returns wrong behavior if all species in the database are 
+        #      legitimately returned by the criteria above 
         if max_species_count != cur_species_count:
             trees = trees.filter(species__in=species)
-            plots = Plot.objects.none()
+            plots = plots.filter(tree__species__in=species)
             species_list = []
             for s in species:
                 species_list.append("species_id = " + s.id.__str__())
@@ -1717,7 +1744,6 @@ def _build_tree_search_result(request):
 
     tree_stewardship = request.GET.get("tree_stewardship", "")
     if tree_stewardship:
-        plots = Plot.objects.none()
         actions = tree_stewardship.split(',')
         steward_ids = [s.tree_id for s in TreeStewardship.objects.order_by("tree__id").distinct("tree__id")]
         for a in actions:
@@ -1734,10 +1760,10 @@ def _build_tree_search_result(request):
             trees = trees.exclude(treestewardship__performed_date__lte=st_min)
             trees = trees.exclude(treestewardship__performed_date__gte=st_max)
 
+        plots = Plot.objects.filter(present=True).filter(tree__in=trees)
         
     plot_stewardship = request.GET.get("plot_stewardship", "")
     if plot_stewardship:
-        trees = Tree.objects.none() 
         actions = plot_stewardship.split(',')
         steward_ids = [s.plot_id for s in PlotStewardship.objects.order_by("plot__id").distinct("plot__id")]
         for a in actions:
@@ -1752,34 +1778,38 @@ def _build_tree_search_result(request):
         if stewardship_range:
             plots = plots.exclude(plotstewardship__performed_date__lte=st_min)
             plots = plots.exclude(plotstewardship__performed_date__gte=st_max)   
-        
-        
 
-    if not geog_obj:
+        trees = Tree.objects.filter(present=True).extra(select={'geometry': "select treemap_plot.geometry from treemap_plot where treemap_tree.plot_id = treemap_plot.id"}).filter(plot__in=plots)
+        
+    agg_object = None
+    
+    if with_benefits:        
         q = request.META['QUERY_STRING'] or ''
         cached_search_agg = AggregateSearchResult.objects.filter(key=q)
         if cached_search_agg.exists() and cached_search_agg[0].ensure_recent(trees.count()):
-            geog_obj = cached_search_agg[0]
+            agg_object = cached_search_agg[0]
         else:
-            geog_obj = AggregateSearchResult(key=q)
-            geog_obj.total_trees = trees.count()
-            geog_obj.total_plots = plots.count()
-            #TODO figure out how to summarize diff stratum stuff
-            fields = [x.name for x in ResourceSummaryModel._meta.fields 
-                if not x.name in ['id','aggregatesummarymodel_ptr','key','resourcesummarymodel_ptr','last_updated']]
+            fields = [x.name for x in ResourceSummaryModel._meta.fields if not x.name in ['id','aggregatesummarymodel_ptr','key','resourcesummarymodel_ptr','last_updated']]
+            with_out_resources = trees.filter(treeresource=None).count() 
+            with_resources = trees.count() - with_out_resources        
+
+            agg_object = AggregateSearchResult(key=q)
+            agg_object.total_trees = trees.count()
+            agg_object.total_plots = plots.count()
             for f in fields:
-                    fn = 'treeresource__' + f
-                    s = trees.aggregate(Sum(fn))[fn + '__sum'] or 0.0
-                    #print geog_obj,f,s
-                    setattr(geog_obj,f,s)
+                fn = 'treeresource__' + f
+                s = trees.aggregate(Sum(fn))[fn + '__sum'] or 0.0
+                if settings.EXTRAPOLATE_WITH_AVERAGE and with_resources > 0:
+                    avg = float(s)/with_resources
+                    s += avg * with_out_resources
+                setattr(agg_object,f,s)
             try:
-                geog_obj.save()
+                agg_object.save()
             except:
                 # another thread has already likely saved the same object...
                 pass
-
-
-    return trees, plots, geog_obj, ' AND '.join(tile_query)
+    
+    return trees, plots, geog_obj, agg_object, ' AND '.join(tile_query)
 
 
 
@@ -1800,11 +1830,28 @@ def zip_files(file_paths,archive_name):
         buffer.close()
         return zip_stream
 
-def ogr_conversion(output_type, tree_sql, plot_sql, extension=None, name="trees", geo=True):   
-    dbsettings = settings.DATABASES['default'] 
-    tmp_treedir = tempfile.mkdtemp() + "/" + name 
-    tmp_plotdir = tempfile.mkdtemp() + "/plots"
+def ogr_conversion(output_type, named_sql, extension=None, name="trees", geo=True):   
+    """ 
+    given  an output type such as CSV, "ESRI ShapeFile" or KML
 
+    plus a list of named_sql in the form of 
+       named_sql =  [{
+            "name":"trees", 
+            "sql":"SELECT * from treemap_tree...", 
+            "srs":'EPSG:4326' #optional, srs default=EPSG:4236
+        },
+         {
+          "name":"plots", 
+          "sql":"SELECT * from treemap_plot...", 
+          "srs":'EPSG:4326' 
+         }] 
+        
+    renders a response with the appropriate zip file attachment.
+
+    requires gdal/ogr2ogr
+    """ 
+    
+    dbsettings = settings.DATABASES['default'] 
     host = dbsettings['HOST']
     port = dbsettings['PORT']
     if host == '':
@@ -1812,54 +1859,53 @@ def ogr_conversion(output_type, tree_sql, plot_sql, extension=None, name="trees"
     if port == '':
         port = 5432
 
-    if extension != None:
-        os.mkdir(tmp_treedir)
-        os.mkdir(tmp_plotdir)
-        tmp_treename = tmp_treedir + "/" + name + "." + extension
-        tmp_plotname = tmp_plotdir + "/plots." + extension
-    else: 
-        tmp_treename = tmp_treedir
-        tmp_plotname = tmp_plotdir
+    tmp_dirs = []
+    done = 0
+    for s in named_sql:
+        sql_name = s["name"]
+        sql = s["sql"]
+        srs = s["srs"] if "srs" in s else 'EPSG:4326'        
+        
+        tmp_dir = os.path.join(tempfile.mkdtemp(), sql_name)
+        tmp_dirs.append(tmp_dir)
 
-    command = ['ogr2ogr', '-sql', tree_sql, '-a_srs', 'EPSG:4326', '-f', output_type, tmp_treename, 
-        'PG:dbname=%s host=%s port=%s password=%s user=%s' % (dbsettings['NAME'], host, port, 
-        dbsettings['PASSWORD'], dbsettings['USER'])]
+        if extension != None:
+            os.mkdir(tmp_dir)
+            tmp_name = os.path.join(tmp_dir, sql_name + "." + extension)
+        else:
+            tmp_name = tmp_dir
+        
+        #command is about to get the db password, careful.
+        command = ['ogr2ogr', '-sql', sql, '-a_srs', srs, '-f', output_type, tmp_name, 
+            'PG:dbname=%s host=%s port=%s password=%s user=%s' % (dbsettings['NAME'], host, port, 
+            dbsettings['PASSWORD'], dbsettings['USER'])]
+        
+        if output_type == 'CSV' and geo:
+            command.append('-lco')
+            command.append('GEOMETRY=AS_WKT')
+        elif output_type == 'ESRI Shapefile' and (sql_name == 'trees'):
+            command.append('-nlt')
+            command.append('NONE')
+        elif output_type == 'ESRI Shapefile' and (sql_name == 'plots'):
+            command.append('-nlt')
+            command.append('POINT')
 
-    if output_type == 'CSV' and geo:
-        command.append('-lco')
-        command.append('GEOMETRY=AS_WKT')
-    if output_type == 'ESRI Shapefile':
-        command.append('-nlt')
-        command.append('NONE')
+        done = None
+        try:
+            done = subprocess.call(command)
+        except:
+            raise Exception("ogr2ogr2 command failed (are the gdal binaries installed?)")
 
-    done = subprocess.call(command)
+        if done != 0: 
+            return render_to_json({'status':'error'})
 
-    if done != 0: 
-        return render_to_json({'status':'error'})
+    zipfile = zip_files(tmp_dirs, name)
 
-    command = ['ogr2ogr', '-sql', plot_sql, '-a_srs', 'EPSG:4326', '-f', output_type, tmp_plotname, 
-        'PG:dbname=%s host=%s port=%s password=%s user=%s' % (dbsettings['NAME'], host, port, 
-        dbsettings['PASSWORD'], dbsettings['USER'])]
+    response = HttpResponse(zipfile, mimetype='application/zip')
+    response['Content-Disposition'] = 'attachment; filename=' + name + '.zip'
+    return response
 
-    if output_type == 'CSV' and geo:  
-        command.append('-lco')
-        command.append('GEOMETRY=AS_WKT')   
-    if output_type == 'ESRI Shapefile':
-        command.append('-nlt')
-        command.append('POINT')
-
-    done = subprocess.call(command)
-
-    if done != 0: 
-        return render_to_json({'status':'error', 'command': command})
-    else: 
-        zipfile = zip_files([tmp_treedir, tmp_plotdir], name)
-
-        response = HttpResponse(zipfile, mimetype='application/zip')
-        response['Content-Disposition'] = 'attachment; filename=' + name + '.zip'
-        return response
-
-
+#TODO: not sure this is used anymore
 def geo_search(request):
     """
     Given a simple polygon in format: x1 y1,x2 y2,x3 y3,...,x1 y1
@@ -1904,19 +1950,11 @@ def geo_search(request):
 
 def advanced_search(request, format='json'):
     """
-    urlparams:
-     - location
-     - geoName if zip or neighborhood found
-     - species
-     # todo:  lat/lng (should be separate from search location 
-     # what type of geography to return in case of zero or too many trees)
-    return either
-     - trees and associated summaries
-     - neighborhood or zipcode and associated   summaries
+        formats: json (default), geojson, shp, kml, csv
     """  
     response = {}
 
-    trees, plots, geog_obj, tile_query = _build_tree_search_result(request)
+    trees, plots, geog_object, agg_object, tile_query = _build_tree_search_result(request, True)
     tree_count = trees.count()
     plot_count = plots.count()
     if tree_count == 0:
@@ -1928,60 +1966,39 @@ def advanced_search(request, format='json'):
     else: 
         plot_query = str(plots.query)
 
-    if format == "geojson":    
-        return render_to_geojson(trees, geom_field='geometry', additional_data={'summaries': esj})
-    elif format == "shp":
-        return ogr_conversion('ESRI Shapefile', tree_query, plot_query)
+    species_query = "SELECT * FROM treemap_species order by id asc"
+
+    trees   = { 'name': 'trees', 'sql': tree_query }
+    plots   = { 'name': 'plots', 'sql': plot_query }
+    species = { 'name': 'species', 'sql': species_query }
+
+    if format == "shp":
+        return ogr_conversion('ESRI Shapefile', [trees, plots])
     elif format == "kml":
-        return ogr_conversion('KML', tree_query, plot_query, 'kml')
+        return ogr_conversion('KML', [trees, plots], 'kml')
     elif format == "csv":
-        return ogr_conversion('CSV', tree_query, plot_query)
+        return ogr_conversion('CSV', [trees, plots, species])
         
-        
-    geography = None
-    summaries, benefits = None, None
-    if geog_obj:
-        summaries, benefits = get_summaries_and_benefits(geog_obj)
-        if hasattr(geog_obj, 'geometry'):
-            geography = simplejson.loads(geog_obj.geometry.simplify(.0001).geojson)
-            geography['name'] = str(geog_obj)
-        else:
-            pass#geography = {}
-            #geography['name'] = ''
-        
-    #else we're doing the simple json route .. ensure we return summary info
     full_count = Tree.objects.filter(present=True).count()
     full_plot_count = Plot.objects.filter(present=True).count()
-    esj = {}
-    esj['total_trees'] = tree_count
-    esj['total_plots'] = plot_count
-    
-    r = ResourceSummaryModel()
-    
-    with_out_resources = trees.filter(treeresource=None).count()
-    #print 'without resourcesums:', with_out_resources
-    resources = tree_count - with_out_resources
-    #print 'have resourcesums:', resources
-    
-    EXTRAPOLATE_WITH_AVERAGE = True
+        
+    summaries, benefits = {}, {}
+    if agg_object:
+        benefits = agg_object.get_benefits()
+        for field in agg_object._meta.get_all_field_names():
+            if field.startswith('total') or field.startswith('annual'):
+                summaries[field] = getattr(agg_object, field)
 
-    for f in r._meta.get_all_field_names():
-        if f.startswith('total') or f.startswith('annual'):
-            fn = 'treeresource__' + f
-            s = trees.aggregate(Sum(fn))[fn + '__sum'] or 0.0
-            # TODO - need to make this logic accesible from shortcuts.get_summaries_and_benefits
-            # which is also a location where summaries are calculated
-            # also add likely to treemap/update_aggregates.py (not really sure how this works)
-            if EXTRAPOLATE_WITH_AVERAGE and resources:
-                avg = float(s)/resources
-                s += avg * with_out_resources
-                    
-            setattr(r,f,s)
-            esj[f] = s
-    esj['benefits'] = r.get_benefits()
-    
-    response.update({'tile_query' : tile_query, 'summaries' : esj, 'geography' : geography, 'initial_tree_count' : tree_count, 'full_tree_count': full_count, 'full_plot_count': full_plot_count})
+    if format == "geojson":     #still used anywhere? 
+        return render_to_geojson(trees, geom_field='geometry', additional_data={'summaries': summaries, 'benefits': benefits})
 
+    geography = None
+    if geog_object:
+        if hasattr(geog_object, 'geometry'):
+            geography = simplejson.loads(geog_object.geometry.simplify(.0001).geojson)
+            geography['name'] = str(geog_object)
+        
+    response.update({'tile_query' : tile_query, 'summaries' : summaries, 'benefits': benefits, 'geography' : geography, 'initial_tree_count' : tree_count, 'full_tree_count': full_count, 'full_plot_count': full_plot_count})
     return render_to_json(response)
 
     
@@ -2291,23 +2308,14 @@ def verify_rep_change(request, change_type, change_id, rep_dir):
         change = TreeFlags.history.filter(_audit_id__exact=change_id)[0]
         user = get_object_or_404(User, pk=change.reported_by_id)
         obj = get_object_or_404(TreeFlags, pk=change.id)
-    
-        
-    #do the rep adjustment
-    if rep_dir == 'up':
-        rep_gain = 5
-    elif rep_dir == 'down':
-        rep_gain= -10
-    elif rep_dir == 'neutral':
-        rep_gain = 1
-    
-    Reputation.objects.log_reputation_action(user, request.user, 'edit verified', rep_gain, obj)
+
+    change_reputation_for_user(user, 'edit verified', obj, sub_action=rep_dir, change_initiated_by_user=request.user)
     change._audit_verified = 1
     change.save()
     return render_to_json({'change_type': change_type, 'change_id': change_id})
     
 @login_required
-@permission_required('comments.can_moderate')
+@permission_required('threadedcomments.change_threadedcomment')
 def view_flagged(request):
     comments = ThreadedComment.objects.annotate(num_flags=Count('comment_flags__id')).filter(is_public=True, num_flags__gt=0)
     n = None
@@ -2329,7 +2337,7 @@ def view_flagged(request):
     return render_to_response('comments/edit_flagged.html',RequestContext(request,{'comments': comments, "geometry":n}))
     
 @login_required
-@permission_required('comments.can_moderate')
+@permission_required('threadedcomments.change_threadedcomment')
 def view_comments(request):
     comments = ThreadedComment.objects.filter(is_public=True)
     n = None
@@ -2351,7 +2359,7 @@ def view_comments(request):
     return render_to_response('comments/edit.html',RequestContext(request,{'comments':comments, "geometry":n}))
   
 @login_required  
-@permission_required('comments.can_moderate')
+@permission_required('threadedcomments.change_threadedcomment')
 def export_comments(request, format):
     users = UserProfile.objects.filter(active=True)
     where = []
@@ -2374,7 +2382,7 @@ def export_comments(request, format):
     if len(where) > 0:
         sql = sql + " and " + ' and '.join(where)
     
-    return ogr_conversion('CSV', sql, "", name="comments", geo=False)    
+    return ogr_conversion('CSV', [{'name':'comments', 'sql':sql}], name="comments", geo=False)    
 
 
    
@@ -2432,3 +2440,18 @@ def view_images(request):
     user_images = UserProfile.objects.exclude(photo="").order_by("-user__last_login")
     tree_images = TreePhoto.objects.all().order_by("-reported")
     return render_to_response('treemap/images.html',RequestContext(request, {'user_images':user_images, 'tree_images':tree_images}))
+
+def treemap_settings_js(request):
+
+    context = {
+        'map_center_lat': settings.MAP_CENTER_LAT,
+        'map_center_lon': settings.MAP_CENTER_LON,
+        'bounding_box_left': settings.BOUNDING_BOX['left'],
+        'bounding_box_bottom': settings.BOUNDING_BOX['bottom'],
+        'bounding_box_top': settings.BOUNDING_BOX['top'],
+        'bounding_box_right': settings.BOUNDING_BOX['right'],
+    }
+
+    response = render_to_response('treemap/treemap_settings.js', RequestContext(request,context))
+    response['Content-Type'] = 'application/javascript'
+    return response

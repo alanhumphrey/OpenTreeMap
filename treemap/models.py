@@ -10,7 +10,8 @@ from django.contrib.gis.db import models
 from django.contrib.gis.db.models import Sum, Q
 from django.contrib.gis.measure import D
 from django.contrib.auth.models import User, Group
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
+from django.db import transaction
 
 import audit
 from classfaves.models import FavoriteBase
@@ -93,7 +94,7 @@ class BenefitValues(models.Model):
     voc = models.FloatField()
     bvoc = models.FloatField()
     
-    def __unicode__(self): return '%s' % (self.area)
+    def __unicode__(self): return u'%s' % (self.area)
 
 
 class CommentFlag(models.Model):
@@ -110,39 +111,6 @@ def sorted_nicely(l, key):
     return sorted(l, key = alphanum_key)
 
 
-class Choices(models.Model):
-    field = models.CharField(max_length=255, choices=choices_choices)
-    key = models.CharField(max_length=50)
-    value = models.CharField(max_length=255)
-    key_type = models.CharField(max_length=15)
-
-    def get_field_choices(self, fieldName):
-        li = {}
-        for c in Choices.objects.filter(field__exact=fieldName):
-
-            if c.key_type == 'int':
-                key =  int(c.key)
-            elif c.key_type == 'bool':
-                if c.key == 'True':
-                    key = True
-                else:
-                    key = False
-            elif c.key_type == 'str':
-                key =  c.key
-            elif c.key_type == 'none':
-                key =  None
-            else:
-                raise Exception("Invalid key type %r" % c.key_type)
-
-            li[c.key] = c.value
-        return sorted_nicely(li.items(), itemgetter(0))
-    
-    def __unicode__(self): return '%s(%s) - %s' % (self.field, self.key, self.value)
-        
-#choices = Choices()
-    
-
-
 # GEOGRAPHIES #
 class Neighborhood(models.Model):
     """
@@ -156,7 +124,7 @@ class Neighborhood(models.Model):
     geometry = models.MultiPolygonField(srid=4326)
     objects=models.GeoManager()
     
-    def __unicode__(self): return '%s' % self.name
+    def __unicode__(self): return u'%s' % self.name
  
 
 class SupervisorDistrict(models.Model):
@@ -168,7 +136,7 @@ class SupervisorDistrict(models.Model):
     geometry = models.MultiPolygonField(srid=4326)
     objects=models.GeoManager()
     
-    def __unicode__(self): return '%s (%s)' % (self.id, self.supervisor)
+    def __unicode__(self): return u'%s (%s)' % (self.id, self.supervisor)
 
     
 class ZipCode(models.Model):
@@ -179,7 +147,7 @@ class ZipCode(models.Model):
     geometry = models.MultiPolygonField(srid=4326)
     objects=models.GeoManager()
     
-    def __unicode__(self): return '%s' % (self.zip)
+    def __unicode__(self): return u'%s' % (self.zip)
     
 
 class ExclusionMask(models.Model):
@@ -190,13 +158,6 @@ class ExclusionMask(models.Model):
     type = models.CharField(max_length=50, blank=True, null=True)
     objects=models.GeoManager()
     
-class Factoid(models.Model):
-    category = models.CharField(max_length=255, choices=Choices().get_field_choices('factoid'))
-    header = models.CharField(max_length=100)
-    fact = models.TextField(max_length=500)
-    
-    def __unicode__(self): return '%s: %s' % (self.category, self.fact)
-
 
 class Resource(models.Model):
     """
@@ -307,7 +268,7 @@ class Resource(models.Model):
                 #print "short resource"
         return results
         
-    def __unicode__(self): return '%s' % (self.meta_species)
+    def __unicode__(self): return u'%s' % (self.meta_species)
     
     
 
@@ -367,9 +328,9 @@ class Species(models.Model):
     
     def __unicode__(self):
         if self.cultivar_name:
-            return "%s, '%s'" % (self.common_name,self.cultivar_name)
+            return u"%s, '%s'" % (self.common_name,self.cultivar_name)
         else:
-            return '%s' % (self.common_name)
+            return u'%s' % (self.common_name)
     
     
 class GeocodeCache(models.Model):
@@ -386,14 +347,202 @@ class ImportEvent(models.Model):
     file_name = models.CharField(max_length=256)
     import_date = models.DateField(auto_now=True) 
 
-class Plot(models.Model):
+class PlotLocateManager(models.GeoManager):
+
+    def with_geometry(self, geom, distance=0, max_plots=1, species_preferenece=None,
+                      native=None, flowering=None, fall=None, edible=None,
+                      dbhmin=None, dbhmax=None, species=None, sort_recent=None,
+                      sort_pending=None, has_tree=None, has_species=None, has_dbh=None):
+        '''
+        Return a QuerySet with trees near a Point geometry or intersecting a Polygon geometry
+        '''
+        plots = Plot.objects.filter(present=True)
+
+        if geom.geom_type == 'Point':
+            plots = plots.filter(geometry__dwithin=(geom, float(distance))).distance(geom).order_by('distance')
+        else:
+            plots = plots.filter(geometry__intersects=geom)
+
+        if species_preferenece:
+            plots_filtered_by_species_preference = plots.filter(tree__species__id=species_preferenece, tree__present=True)
+            # If a species_preferenece is specified then any nearby trees with that species_preferenece will be
+            # returned. If there are no trees for that species_preferenece, the nearest tree from any
+            # species_preferenece will be returned.
+            if len(plots_filtered_by_species_preference) > 0:
+                plots = plots_filtered_by_species_preference
+
+        if species: # Note that, unlike "preference", these values are forced
+            plots = plots.filter(tree__species__pk=species, tree__present=True)
+
+        if native is not None:
+            if native:
+                native = "True"
+            else:
+                native = ""
+
+            plots = plots.filter(tree__species__native_status=native, tree__present=True)
+
+        if flowering is not None:
+            plots = plots.filter(tree__species__flower_conspicuous=flowering, tree__present=True)
+
+        if fall is not None:
+            plots = plots.filter(tree__species__fall_conspicuous=fall, tree__present=True)
+
+        if edible is not None:
+            plots = plots.filter(tree__species__palatable_human=edible, tree__present=True)
+
+        if dbhmin is not None:
+            plots = plots.filter(tree__dbh__gte=dbhmin, tree__present=True)
+
+        if dbhmax is not None:
+            plots = plots.filter(tree__dbh__lte=dbhmax, tree__present=True)
+
+        has_filter_q = None
+        def filter_or(f,has):
+            if has:
+                return f | has
+            else:
+                return f
+
+        if has_tree is not None:
+            q_has_tree = Q(tree__present=True)
+            if not has_tree:
+                q_has_tree = ~q_has_tree
+
+            has_filter_q = filter_or(q_has_tree, has_filter_q)
+
+        if has_species is not None:
+            if has_species:
+                q_has_species = Q(tree__species__isnull=False,tree__present=True)
+            else:
+                # Note that Q(tree__present=False) seems to exlucde too
+                # many records. Instead ~Q(tree__present=True) selects
+                # all plots without tree records and those with trees
+                # that are marked as not present
+                q_has_species = Q(tree__species__isnull=True,tree__present=True)|(~Q(tree__present=True))
+
+            has_filter_q = filter_or(q_has_species, has_filter_q)
+
+        if has_dbh is not None:
+            q_has_dbh = Q(tree__dbh__isnull=(not has_dbh))
+            has_filter_q = filter_or(q_has_dbh, has_filter_q)
+
+        if has_filter_q:
+            plots = plots.filter(has_filter_q)
+
+        if sort_recent:
+            plots = plots.order_by('-last_updated')
+
+        if sort_pending:
+            plots_tree_pending = plots.filter(Q(tree__treepending__status='pending'))
+            plots_plot_pending = plots.filter(Q(plotpending__status='pending'))
+
+            if max_plots:
+                plots = list(plots_tree_pending) + list(plots_plot_pending)
+                # Uniquify
+                plots_hash = {}
+                for p in plots:
+                    plots_hash[p.pk] = p
+
+                plots = plots_hash.values()
+
+                plots = sorted(plots, key=lambda z: z.distance)
+
+                plots = plots[:max_plots]
+
+                extent = self.calc_extent(plots)
+
+        else:
+            if max_plots:
+                plots = plots[:max_plots]
+
+            if plots.count() > 0:
+                extent = plots.extent()
+            else:
+                extent = []
+
+        return plots, extent
+
+    def calc_extent(self, plots):
+        if not plots:
+            return []
+        
+        xs = [plot.geometry.x for plot in plots]
+        ys = [plot.geometry.y for plot in plots]
+
+        return (min(xs),min(ys),max(xs),max(ys))
+
+class ManagementMixin(object):
+    """
+    Methods that relate to checking editabilty, usable in either Tree or Plot models
+    """
+    def _created_by(self):
+        insert_event_set = self.history.filter(_audit_change_type='I')
+        if insert_event_set.count() == 0:
+            # If there is no audit event with type 'I' then the user who created the model cannot be determined
+            return None
+        else:
+            # The 'auth.change_user' permission is a proxy for 'is the user a manager'
+            return insert_event_set[0].last_updated_by
+    created_by = property(_created_by)
+
+    def _was_created_by_a_manager(self):
+        if self.created_by:
+            return self.created_by.has_perm('auth.change_user')
+        else:
+            # If created_by is None, the author of the instance could not be
+            # determined (bulk loaded data, perhaps). In this case we assume, for
+            # for safety, that the instance was created by a manager
+            return True
+    was_created_by_a_manager = property(_was_created_by_a_manager)
+
+class PendingMixin(object):
+    """
+    Methods that relate to pending edit management for either Tree or Plot models
+    """
+
+    def get_active_pends(self):
+        raise Exception('PendingMixin expects subclasses to implement get_active_pends')
+
+    def get_active_pend_dictionary(self):
+        """
+        Create a dictionary of active pends keyed by field name.
+
+        {
+          'field1': {
+            'latest_value': 4,
+            'pends': [
+              <Pending>,
+              <Pending>
+            ]
+          },
+          'field2': {
+            'latest_value': 'oak',
+            'pends': [
+              <Pending>
+            ]
+          }
+        }
+        """
+        pends = self.get_active_pends().order_by('-submitted')
+
+        result = {}
+        for pend in pends:
+            if pend.field in result:
+                result[pend.field]['pending_edits'].append(pend)
+            else:
+                result[pend.field] = {'latest_value': pend.value, 'pending_edits': [pend]}
+        return result
+
+
+class Plot(models.Model, ManagementMixin, PendingMixin):
     present = models.BooleanField(default=True)
     width = models.FloatField(null=True, blank=True, error_messages={'invalid': "Error: This value must be a number."})
     length = models.FloatField(null=True, blank=True, error_messages={'invalid': "Error: This value must be a number."})
-    type = models.CharField(max_length=256, null=True, blank=True, choices=Choices().get_field_choices('plot_type'))
-    powerline_conflict_potential = models.CharField(max_length=256, choices=Choices().get_field_choices('powerline_conflict_potential'),
-        help_text = "Are there overhead powerlines present?",null=True, blank=True, default='3')
-    sidewalk_damage = models.CharField(max_length=256, null=True, blank=True, choices=Choices().get_field_choices('sidewalk_damage'))
+    type = models.CharField(max_length=256, null=True, blank=True, choices=settings.CHOICES["plot_types"])
+    powerline_conflict_potential = models.CharField(max_length=256, choices=settings.CHOICES["powerlines"],
+        help_text = "Are there overhead powerlines present?",null=True, blank=True)
+    sidewalk_damage = models.CharField(max_length=256, null=True, blank=True, choices=settings.CHOICES["sidewalks"])
     
     address_street = models.CharField(max_length=256, blank=True, null=True)
     address_city = models.CharField(max_length=256, blank=True, null=True)
@@ -418,6 +567,8 @@ class Plot(models.Model):
     history = audit.AuditTrail()
     import_event = models.ForeignKey(ImportEvent)
     objects = models.GeoManager()
+    # The locate Manager encapsulates plot search functionality
+    locate = PlotLocateManager()
 
     #original data to help owners associate back to their own db
     data_owner = models.ForeignKey(User, related_name="owner", null=True, blank=True)
@@ -435,7 +586,7 @@ class Plot(models.Model):
 
 
     def get_plot_type_display(self):
-        for key, value in Choices().get_field_choices('plot_type'):
+        for key, value in settings.CHOICES["plot_types"]:
             if key == self.type:
                 return value
         return None
@@ -453,13 +604,13 @@ class Plot(models.Model):
         return '%s x %s' % (length, width)
 
     def get_sidewalk_damage_display(self):
-        for key, value in Choices().get_field_choices('sidewalk_damage'):
+        for key, value in settings.CHOICES["sidewalks"]:
             if key == self.sidewalk_damage:
                 return value
         return None    
        
     def get_powerline_conflict_display(self):
-        for key, value in Choices().get_field_choices('powerline_conflict_potential'):
+        for key, value in settings.CHOICES["powerlines"]:
             if key == self.powerline_conflict_potential:
                 return value
         return None
@@ -469,14 +620,18 @@ class Plot(models.Model):
         return len(self.plotstewardship_set.all())
         
     def current_tree(self):
-        trees = Tree.objects.filter(present=True, plot=self)
-        if len(trees) > 0:
+        trees = self.tree_set.filter(present=True)
+        if trees.count() > 0:
             return trees[0]
-        else:
+        else: 
             return None
 
     def get_active_pends(self):
         pends = self.plotpending_set.filter(status='pending')
+        return pends
+
+    def get_active_geopends(self):
+        pends = self.plotpending_set.filter(status='pending').exclude(geometry=None)
         return pends
 
     def get_active_pends_with_tree_pends(self):
@@ -487,12 +642,6 @@ class Plot(models.Model):
             tree_pends = []
         pends = list(chain(plot_pends, tree_pends))
         return pends
-
-    def get_plot_type_display(self):
-        for key, value in Choices().get_field_choices('plot_type'):
-            if key == self.type:
-                return value
-        return None
 
     def get_plot_size(self): 
         length = self.length
@@ -505,18 +654,6 @@ class Plot(models.Model):
         else: width = '%.2f ft' % width
         return '%s x %s' % (length, width)
     
-    def get_sidewalk_damage_display(self):
-        for key, value in Choices().get_field_choices('sidewalk_damage'):
-            if key == self.sidewalk_damage:
-                return value
-        return None    
-
-    def get_powerline_conflict_potential(self):
-        for key, value in Choices().get_field_choices('powerline_conflict_potential'):
-            if key == self.powerline_conflict_potential:
-                return value
-        return None
-
     def quick_save(self, *args, **kwargs):
         super(Plot, self).save(*args,**kwargs) 
 
@@ -530,10 +667,11 @@ class Plot(models.Model):
         
         if n:
             oldns = self.neighborhoods
-            self.neighborhoods = ""
+            new_nhoods = []
             for nhood in n:
                 if nhood:
-                    self.neighborhoods = self.neighborhoods + " " + nhood.id.__str__()
+                    new_nhoods.append(nhood.id.__str__())
+            self.neighborhoods = " ".join(new_nhoods)
         else: 
             self.neighborhoods = ""
             oldns = None
@@ -607,7 +745,22 @@ class Plot(models.Model):
             return (nearby.count()-max_count).__str__() #number greater than max_count allows
         return None
 
-class Tree(models.Model):
+    def remove(self):
+        """
+        Mark the plot and its associated objects as not present.
+        """
+        if self.current_tree():
+            tree = self.current_tree()
+            tree.remove()
+
+        self.present = False
+        self.save()
+
+        for audit_trail_record in self.history.all():
+            audit_trail_record.present = False
+            audit_trail_record.save()
+
+class Tree(models.Model, ManagementMixin, PendingMixin):
     def __init__(self, *args, **kwargs):
         super(Tree, self).__init__(*args, **kwargs)  #save, in order to get ID for the tree
     #owner properties based on wiki/DatabaseQuestions
@@ -640,8 +793,8 @@ class Tree(models.Model):
     
     import_event = models.ForeignKey(ImportEvent)
     
-    condition = models.CharField(max_length=256, null=True, blank=True, choices=Choices().get_field_choices('condition'))
-    canopy_condition = models.CharField(max_length=256, null=True, blank=True, choices=Choices().get_field_choices('canopy_condition'))
+    condition = models.CharField(max_length=256, null=True, blank=True, choices=settings.CHOICES["conditions"])
+    canopy_condition = models.CharField(max_length=256, null=True, blank=True, choices=settings.CHOICES["canopy_conditions"])
 
     readonly = models.BooleanField(default=False)
 
@@ -659,7 +812,7 @@ class Tree(models.Model):
     
 
     def get_condition_display(self):
-        for key, value in Choices().get_field_choices('condition'):
+        for key, value in settings.CHOICES["conditions"]:
             if key == self.condition:
                 return value
         return None
@@ -699,10 +852,6 @@ class Tree(models.Model):
         
     def get_active_pends(self):
         pends = self.treepending_set.filter(status='pending')
-        return pends
-
-    def get_active_geopends(self):
-        pends = PlotPending.objects.filter(status='pending').filter(tree=self)
         return pends
 
     def set_environmental_summaries(self):
@@ -777,6 +926,9 @@ class Tree(models.Model):
             self.species.save()
 
         super(Tree, self).save(*args,**kwargs) 
+
+        self.plot.last_updated = self.last_updated
+        self.plot.save()
           
     
     def quick_save(self,*args,**kwargs):
@@ -787,6 +939,9 @@ class Tree(models.Model):
             self.old_species.save()
         if hasattr(self,'species') and self.species:
             self.species.save()
+
+        self.plot.last_updated = self.last_updated
+        self.plot.save()
     
     def update_aggregate(self, ag_model, location):        
         agg =  ag_model.objects.filter(location=location)
@@ -903,12 +1058,22 @@ class Tree(models.Model):
         if not self.height or not self.species or not self.species.v_max_height:
             return None
         if self.height > self.species.v_max_height:
-	    return "%s (species max: %s)" % (str(self.height), str(self.species.v_max_height))
+            return "%s (species max: %s)" % (str(self.height), str(self.species.v_max_height))
         return None
-        
+
+    def remove(self):
+        """
+        Mark the tree and its associated objects as not present.
+        """
+        self.present = False
+        self.save()
+        for audit_trail_record in self.history.all():
+            audit_trail_record.present = False
+            audit_trail_record.save()
+
     def __unicode__(self): 
         if self.species:
-            return '%s, %s, %s' % (self.species.common_name or '', self.species.scientific_name, self.plot.geocoded_address)
+            return u'%s, %s, %s' % (self.species.common_name or '', self.species.scientific_name, self.plot.geocoded_address)
         else:
             return self.plot.geocoded_address
 
@@ -928,12 +1093,29 @@ class Pending(models.Model):
     updated = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(User, related_name="pend_updated_by")
 
+    def set_create_attributes(self, user, field_name, field_value):
+        self.field = field_name
+        self.value = field_value
+        self.submitted_by = user
+        self.status = 'pending'
+        self.updated_by = user
+
+        if  field_name in settings.CHOICES:
+            for choice_key, choice_value in settings.CHOICES[field_name]:
+                if str(choice_key) == str(field_value):
+                    self.text_value = choice_value
+                    break
+
     def approve(self, updating_user):
+        if self.status != 'pending':
+            raise ValidationError('The Pending instance is not in the "pending" status and cannot be approved.')
         self.updated_by = updating_user
         self.status = 'approved'
         self.save()
 
     def reject(self, updating_user):
+        if self.status != 'pending':
+            raise ValidationError('The Pending instance is not in the "pending" status and cannot be rejected.')
         self.status = 'rejected'
         self.updated_by = updating_user
         self.save()
@@ -941,8 +1123,8 @@ class Pending(models.Model):
 class TreePending(Pending):
     tree = models.ForeignKey(Tree)
 
-    def approve(self, updating_user):
-        super(Pending, self).approve(updating_user)
+    def _approve(self, updating_user):
+        super(TreePending, self).approve(updating_user)
         update = {}
         update['old_' + self.field] = getattr(self.tree, self.field).__str__()
         update[self.field] = self.value.__str__()
@@ -952,18 +1134,30 @@ class TreePending(Pending):
         self.tree._audit_diff = simplejson.dumps(update)
         self.tree.save()
 
+    def set_create_attributes(self, user, field_name, field_value):
+        super(TreePending, self).set_create_attributes(user, field_name, field_value)
+        if field_name == 'species_id':
+            self.text_value = Species.objects.get(id=field_value).scientific_name
+
+    @transaction.commit_on_success
+    def approve_and_reject_other_active_pends_for_the_same_field(self, updating_user):
+        self._approve(updating_user)
+        for active_pend in self.tree.get_active_pends():
+            if active_pend != self and active_pend.field == self.field:
+                active_pend.reject(updating_user)
+
 class PlotPending(Pending):
     plot = models.ForeignKey(Plot)
 
     geometry = models.PointField(srid=4326, blank=True, null=True)
     objects = models.GeoManager()
 
-    def approve(self, updating_user):
-        super(Pending, self).approve(updating_user)
+    def _approve(self, updating_user):
+        super(PlotPending, self).approve(updating_user)
         update = {}
         if self.geometry:
-            update['old_geometry'] = self.plot.geometry
-            update['geometry'] = self.geometry
+            update['old_geometry'] = simplejson.loads(self.plot.geometry.geojson)
+            update['geometry'] = simplejson.loads(self.geometry.geojson)
             self.plot.geometry = self.geometry
         else:
             update['old_' + self.field] = getattr(self.plot, self.field).__str__()
@@ -973,7 +1167,21 @@ class PlotPending(Pending):
         self.plot.last_updated_by = self.submitted_by
         self.plot._audit_diff = simplejson.dumps(update)
         self.plot.save()
-    
+
+    def set_create_attributes(self, user, field_name, field_value):
+        super(PlotPending, self).set_create_attributes(user, field_name, field_value)
+        if field_name == 'geometry':
+            self.geometry = field_value
+        else:
+            # Omit the geometry so that PlotPending.approve will use the text value
+            self.geometry = None
+
+    @transaction.commit_on_success
+    def approve_and_reject_other_active_pends_for_the_same_field(self, updating_user):
+        self._approve(updating_user)
+        for active_pend in self.plot.get_active_pends():
+            if active_pend != self and active_pend.field == self.field:
+                active_pend.reject(updating_user)
 
 class TreeWatch(models.Model):
     key = models.CharField(max_length=255, choices=watch_choices.iteritems())
@@ -989,22 +1197,25 @@ class Stewardship(models.Model):
     performed_by = models.ForeignKey(User)
     performed_date = models.DateTimeField()
 
+    class Meta:
+        ordering = ["performed_date"]
+
 class TreeStewardship(Stewardship):
-    activity = models.CharField(max_length=256, null=True, blank=True, choices=Choices().get_field_choices('treestewardship'))
+    activity = models.CharField(max_length=256, null=True, blank=True, choices=settings.CHOICES["tree_stewardship"])
     tree = models.ForeignKey(Tree)
 
     def get_activity(self):
-        for key, value in Choices().get_field_choices('treestewardship'):
+        for key, value in settings.CHOICES["tree_stewardship"]:
             if key == self.activity:
                 return value
         return None
 
 class PlotStewardship(Stewardship):
-    activity = models.CharField(max_length=256, null=True, blank=True, choices=Choices().get_field_choices('plotstewardship'))
+    activity = models.CharField(max_length=256, null=True, blank=True, choices=settings.CHOICES["plot_stewardship"])
     plot = models.ForeignKey(Plot)
 
     def get_activity(self):
-        for key, value in Choices().get_field_choices('plotstewardship'):
+        for key, value in settings.CHOICES["plot_stewardship"]:
             if key == self.activity:
                 return value
         return None
@@ -1028,13 +1239,13 @@ class TreeItem(models.Model):
             return self.tree.validate_all()
 
     def __unicode__(self):
-        return '%s, %s, %s' % (self.reported, self.tree, self.key)
+        return u'%s, %s, %s' % (self.reported, self.tree, self.key)
 
 def get_parent_id(instance):
     return instance.key
 
 class TreeFlags(TreeItem):
-    key = models.CharField(max_length=256, choices=Choices().get_field_choices("local"))
+    key = models.CharField(max_length=256, choices=settings.CHOICES["projects"])
     value = models.DateTimeField(auto_now=True)
 
 
@@ -1058,7 +1269,7 @@ class TreePhoto(TreeItem):
         self.tree.save()
 
     def __unicode__(self):
-        return '%s, %s, %s' % (self.reported, self.tree, self.title)
+        return u'%s, %s, %s' % (self.reported, self.tree, self.title)
 
         
 class TreeAlert(TreeItem):
@@ -1066,13 +1277,13 @@ class TreeAlert(TreeItem):
     status of attributes that we want to track changes over time.
     sidwalk damage might be scale of 0 thru 5, where dbh or height might be an arbitrary float
     """
-    key = models.CharField(max_length=256, choices=Choices().get_field_choices('alert'))
+    key = models.CharField(max_length=256, choices=settings.CHOICES["alerts"])
     value = models.DateTimeField()
     solved = models.BooleanField(default=False)    
     
-    
+#Should be removed in favor of stewardship activities    
 class TreeAction(TreeItem): 
-    key = models.CharField(max_length=256, choices=Choices().get_field_choices('action'))
+    key = models.CharField(max_length=256, choices=settings.CHOICES["actions"])
     value = models.DateTimeField()
       
 class ResourceSummaryModel(models.Model):
@@ -1130,7 +1341,7 @@ class TreeResource(ResourceSummaryModel):
     resource results for a specific tree.  should get updated whenever a tree does.
     """
     tree = models.OneToOneField(Tree, primary_key=True)
-    def __unicode__(self): return '%s' % (self.tree)
+    def __unicode__(self): return u'%s' % (self.tree)
 
 
 class AggregateSummaryModel(ResourceSummaryModel):
@@ -1139,17 +1350,12 @@ class AggregateSummaryModel(ResourceSummaryModel):
     total_plots = models.IntegerField()
     #distinct_species = models.IntegerField()
 
-    def ensure_recent(self, current_tree_count = ''):
-      if current_tree_count and current_tree_count == self.total_trees:
-          tm = True
-      else:
-          tm = False
-
-      if tm and (datetime.now() - self.last_updated).seconds < 7200: #two hrs
+    def ensure_recent(self, current_tree_count = 0):
+      if current_tree_count == self.total_trees and (datetime.now() - self.last_updated).seconds < 7200:
           return True
-      else:
-          self.delete()
-          return False
+      
+      self.delete()
+      return False
 
 # to cache large searches via GET params
 class AggregateSearchResult(AggregateSummaryModel):

@@ -3,6 +3,12 @@ import django
 
 from settings_seattle import *
 
+
+try:
+   from impl_settings import *
+except ImportError, e:
+   pass
+
 #new settings
 SITE_ROOT = '/'
 GEOSERVER_GEO_LAYER = ''
@@ -17,7 +23,6 @@ THUMBNAIL_DEBUG = True
 THUMBNAIL_SUBDIR = '_thumbs'
 
 AUTH_PROFILE_MODULE = 'profiles.userprofile'
-
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
@@ -83,6 +88,7 @@ INSTALLED_APPS = (
     'profiles',
     'django_reputation',
     'tagging',
+    'south',
     'sorl.thumbnail',
     'classfaves',
     'qs_tiles',
