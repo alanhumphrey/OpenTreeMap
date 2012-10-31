@@ -1,6 +1,8 @@
 import os
 import logging
 
+from treemap.test_choices import *
+
 logging.basicConfig(
     level = logging.DEBUG,
     format = '%(asctime)s %(levelname)s %(message)s',
